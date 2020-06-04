@@ -112,13 +112,13 @@ if __name__ == '__main__':
 
     # Merge the processed output
     print('Merging processed output')
-    ds_merge = xr.merge(pv_list, compat='no_conflicts')
-    tmerge = time.time() - tpool - tsearch - t0
+    ds_combined = xr.combine_by_coords(pv_list)
+    tcombined = time.time() - tpool - tsearch - t0
 
     # Save the merged output
     print('Saving merged output \n')
-    ds_merge.to_netcdf(out_file)
-    tsave = time.time() - tmerge - tpool - tsearch - t0
+    ds_combined.to_netcdf(out_file)
+    tsave = time.time() - tcombined - tpool - tsearch - t0
 
     print('Processing completed \n')
 
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     print('Summary statistics below:')
     print('t_search = {} secs'.format(tsearch))
     print('t_pool   = {} secs'.format(tpool))
-    print('t_merge  = {} secs'.format(tmerge))
+    print('t_combined  = {} secs'.format(tcombined))
     print('t_save   = {} secs \n'.format(tsave))
 
     print(72 * '#' + '\n')
