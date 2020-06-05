@@ -10,7 +10,7 @@ from queue import Queue
 from multiprocessing import Pool
 import getopt
 import sys
-import general as PVG
+from . import general as PVG
 
 
 def _open_dataset_level(file_list, lvl, ds_grid, variable):
