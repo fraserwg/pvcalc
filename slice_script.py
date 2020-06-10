@@ -106,7 +106,7 @@ if __name__ == '__main__':
         print('No tiles found, exiting PVCALC.py')
         sys.exit()
     elif len(ptlat) < nprocs:
-        nprocs = ptlat
+        nprocs = len(ptlat)
         print('Number of processors reduced to match number of tiles \n')
         print('nprocs = {}'.format(nprocs))
     
