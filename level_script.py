@@ -17,10 +17,10 @@ import time
 
 if __name__ == '__main__':
     print(72 * '#')
-    print('PVCALC.py')
+    print('level_script.py')
     print(72 * '#' + '\n')
 
-    print('Welcome to PVCALC.py, a python utility for calculating PV')
+    print('Welcome to level_script.py, a python utility for calculating PV')
     print('from MITgcm generated netcdf files.\n')
 
     print('Command line options:')
