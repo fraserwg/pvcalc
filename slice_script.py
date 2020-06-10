@@ -26,7 +26,7 @@ if __name__ == '__main__':
     print('Command line options:')
     print('-d --> input/output directory')
     print('-n --> number of processors to use')
-    print('-l --> latitude of slice (in km)')
+    print('-l --> latitude of slice (in m)')
     print('-F --> Full Coriolis component')
     print('-o --> Name of output file \n')
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     # Display the options
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
-    print('Operating at latitude {:.2f} km'.format(lat))
+    print('Operating at latitude {:.2f} km'.format(lat*1e-3))
     print('Number of processors used: {} \n'.format(nprocs))
 
     print(72 * '#' + '\n')
@@ -105,6 +105,11 @@ if __name__ == '__main__':
     if len(ptlat) == 0:
         print('No tiles found, exiting PVCALC.py')
         sys.exit()
+    elif len(ptlat) < nprocs:
+        nprocs = ptlat
+        print('Number of processors reduced to match number of tiles \n')
+        print('nprocs = {}'.format(nprocs))
+    
         
     # Of the tiles found, check which are in the desired slice
 
