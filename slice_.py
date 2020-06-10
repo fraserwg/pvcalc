@@ -20,7 +20,7 @@ def is_tile_in_slice(proc, tile, lat):
     else:
         tile_in_slice = False
     
-    return tile_in_slice, proc, tile
+    return tile_in_slice
 
 
 def _open_dataset_slice(file_list, lat, ds_grid, variable):
