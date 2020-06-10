@@ -8,7 +8,7 @@ from threading import Thread
 from queue import Queue
 import time
 from multiprocessing import Pool
-from . import general as PVG
+import general as PVG
 
 
 def is_tile_in_slice(proc, tile, lat):
