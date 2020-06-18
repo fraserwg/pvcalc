@@ -194,6 +194,19 @@ def grad_b(ds_rho, rho_ref):
 
 
 def hor_vort(ds_vel, fCoriCos):
+    ''' Calculates the horizontal vorticity.
+
+    Arguments:
+        ds_vel --> xarray dataset of velocities as opened by open_tile. Should
+            contain the ketys 'UVEL', 'VVEL' and 'WVEL' defined on the C-grid.
+        fCoriCos --> Non-traditional component of the Coriolis force. Either a
+            float or an xarray dataarray or numpy array defined on the 'X' and
+            'Y' points of the tile.
+
+    Returns:
+        ds_vort --> xarray dataset containing the horizontal components of the
+            absolute vorticity.
+    '''
     ds_hv = xr.Dataset()
     ds_hv['dUdZ'] = ds_vel['UVEL'].differentiate(
         'Z', edge_order=1).interp({'Xp1': ds_vel['X']}).isel({'Z': 1})
@@ -211,12 +224,25 @@ def hor_vort(ds_vel, fCoriCos):
 
 
 def abs_vort(ds_vert, ds_grid):
+    ''' Calculates the vertical component of the absolute vorticity.
+
+    Arguments:
+        ds_vert --> xarray dataset containing the vertical component of the
+            relative vorticity. Contains the key 'momVort3'.
+        ds_grid --> xarray dataset containing the grid data of the domain. Must
+            contain the key 'fCoriG' which is the vertical component of the
+            planetary vorticity defined at the cell corners.
+
+    Returns:
+        da_vort --> xarray dataarray containing the vertical component of the
+            absolute vorticity.
+    '''
     ds_vert = ds_vert.isel({'Z': 1})
     ds_vort = xr.DataArray()
-    ds_vort = ds_vert['momVort3'] + ds_grid['fCoriG']
-    ds_vort = ds_vort.interp({'Xp1': ds_grid['X'], 'Yp1': ds_grid['Y']})
-    ds_vort = ds_vort.drop_vars(['Xp1', 'Yp1'])
-    return ds_vort
+    da_vort = ds_vert['momVort3'] + ds_grid['fCoriG']
+    da_vort = da_vort.interp({'Xp1': ds_grid['X'], 'Yp1': ds_grid['Y']})
+    da_vort = da_vort.drop_vars(['Xp1', 'Yp1'])
+    return da_vort
 
 
 def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
