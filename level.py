@@ -106,62 +106,80 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
         ds_var = xr.concat([ds for ds in ds_list], dim='T')
 
     # Establish boundary points
+    ds_var = remove_boundary_points(ds_var, depth)
+
+    return ds_var
+
+
+def remove_boundary_points(ds, depth):
+    ''' Determines whether a tile has a solid boundary and removes those points
+    if so
+
+    Arguments:
+        ds --> xarray dataset containing variable of interest
+        depth --> xarray dataarray containing the depth corersponding to this
+            tile
+
+    Returns:
+        ds --> original dataset with any land points removed.
+    '''
+    # Determine boundary points
     North, South, East, West = PVG.is_boundary(depth)
 
     # Remove boundary points if necessary
     if North:
         try:
-            ylen = ds_var.dims['Y']
-            ds_var = ds_var.isel(Y=slice(0, ylen - 1))
+            ylen = ds.dims['Y']
+            ds = ds.isel(Y=slice(0, ylen - 1))
         except KeyError:
             pass
 
         try:
-            yplen = ds_var.dims['Yp1']
-            ds_var = ds_var.isel(Yp1=slice(0, yplen - 1))
+            yplen = ds.dims['Yp1']
+            ds = ds.isel(Yp1=slice(0, yplen - 1))
         except KeyError:
             pass
 
     if South:
         try:
-            ylen = ds_var.dims['Y']
-            ds_var = ds_var.isel(Y=slice(1, ylen))
+            ylen = ds.dims['Y']
+            ds = ds.isel(Y=slice(1, ylen))
         except KeyError:
             pass
 
         try:
-            yplen = ds_var.dims['Yp1']
-            ds_var = ds_var.isel(Yp1=slice(1, yplen))
+            yplen = ds.dims['Yp1']
+            ds = ds.isel(Yp1=slice(1, yplen))
         except KeyError:
             pass
 
     if East:
         try:
-            xlen = ds_var.dims['X']
-            ds_var = ds_var.isel(X=slice(0, xlen - 1))
+            xlen = ds.dims['X']
+            ds = ds.isel(X=slice(0, xlen - 1))
         except KeyError:
             pass
 
         try:
-            xplen = ds_var.dims['Xp1']
-            ds_var = ds_var.isel(Xp1=slice(0, xplen - 1))
+            xplen = ds.dims['Xp1']
+            ds = ds.isel(Xp1=slice(0, xplen - 1))
         except KeyError:
             pass
 
     if West:
         try:
-            xlen = ds_var.dims['X']
-            ds_var = ds_var.isel(X=slice(1, xlen))
+            xlen = ds.dims['X']
+            ds = ds.isel(X=slice(1, xlen))
         except KeyError:
             pass
 
         try:
-            xplen = ds_var.dims['Xp1']
-            ds_var = ds_var.isel(Xp1=slice(1, xplen))
+            xplen = ds.dims['Xp1']
+            ds = ds.isel(Xp1=slice(1, xplen))
         except KeyError:
             pass
 
-    return ds_var
+    return ds
 
 
 def grad_b(ds_rho, rho_ref):
@@ -238,7 +256,7 @@ def abs_vort(ds_vert, ds_grid):
             absolute vorticity.
     '''
     ds_vert = ds_vert.isel({'Z': 1})
-    ds_vort = xr.DataArray()
+    da_vort = xr.DataArray()
     da_vort = ds_vert['momVort3'] + ds_grid['fCoriG']
     da_vort = da_vort.interp({'Xp1': ds_grid['X'], 'Yp1': ds_grid['Y']})
     da_vort = da_vort.drop_vars(['Xp1', 'Yp1'])
