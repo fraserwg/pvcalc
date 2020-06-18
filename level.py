@@ -271,17 +271,8 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
     vv_thread.join()
     hv_thread.join()
 
-    # This is horribly hacky but works
-    while not que.empty():
-        result = que.get()
-        if type(result) == xr.DataArray:
-            da_vvort = result
-        else:
-            try:
-                result['dbdz']
-                ds_b = result
-            except KeyError:
-                ds_hvort = result
+    # Extract variable from the que
+    da_vvort, ds_b, ds_hvort = _drain_the_component_que(que)
 
     # Calculate q
     q = PVG.calc_q(ds_b, da_vvort, ds_hvort)
@@ -322,3 +313,34 @@ def remove_overlap_points(ds, depth):
         xid = ds.dims['X']
         ds = ds.isel({'X': slice(1, xid)})
     return ds
+
+
+def _drain_the_component_que(que):
+    ''' Extracts the bouyancy and vorticity xarray objects from que.
+
+    Arguments:
+        que --> queue.Queue object  containing jobs calculating the horizontal
+            and vertical components of vorticity and the buoyancy
+
+    Returns:
+        da_vvort --> xarray dataarray containing the vertical absolute
+            vorticity
+        ds_b --> xarray dataset containing buoyancy and its gradients
+        ds_hvort --> xarray dataset containing the horizontal vorticity
+            components
+
+    Notes:
+        This function is very hacky and specialised. It shouldn't normally be
+        accessed by the user. 
+    '''
+    while not que.empty():
+        result = que.get()
+        if type(result) == xr.DataArray:
+            da_vvort = result
+        else:
+            try:
+                result['dbdz']
+                ds_b = result
+            except KeyError:
+                ds_hvort = result
+    return da_vvort, ds_b, ds_hvort
