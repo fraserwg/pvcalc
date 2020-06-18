@@ -14,9 +14,12 @@ import slice_ as PVS
 import logging
 import logging.handlers
 import time
+from datetime import datetime
 
 if __name__ == '__main__':
     print(72 * '#')
+    now = datetime.now()
+    print('{} {}:{}:{}'.format(now.date(), now.hour, now.minute, now.second))
     print('slice_script.py')
     print(72 * '#' + '\n')
 

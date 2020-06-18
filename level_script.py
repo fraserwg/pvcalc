@@ -14,9 +14,12 @@ import level as PVL
 import logging
 import logging.handlers
 import time
+from datetime import datetime
 
 if __name__ == '__main__':
     print(72 * '#')
+    now = datetime.now()
+    print('{} {}:{}:{}'.format(now.date(), now.hour, now.minute, now.second))
     print('level_script.py')
     print(72 * '#' + '\n')
 
