@@ -165,6 +165,21 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
 
 
 def grad_b(ds_rho, rho_ref):
+    ''' Calculates the gradient of the buoyancy field from the density field.
+
+    Arguments:
+        ds_rho --> xarray dataset containing 'RHOAnoma', the density anomaly.
+            Should be opened using open_tile
+        rho_ref --> The reference density which added to the dat in RHOAnoma
+            gives the total density. Should be opened using mds then sliced.
+
+    Returns:
+        ds_b --> dataset containing the buoyancy gradients and buoyancy.
+
+    Notes:
+        rho_ref is NOT the density of the reference level. That is set to
+            1000 kg/m^3 in the below function.
+    '''
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
 
@@ -249,20 +264,35 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
     # Now we need to get rid of incorrect overlap points.
     # Note that this is different to the previous cropping as that
     # was to remove land points.
-    North, South, East, West = PVG.is_boundary(ds_grid['Depth'])
-    if not North:
-        q = q.isel({'Y': slice(0, -1)})
-    if not South:
-        yid = q.dims['Y']
-        q = q.isel({'Y': slice(1, yid)})
-    if not East:
-        q = q.isel({'X': slice(0, -1)})
-    if not West:
-        xid = q.dims['X']
-        q = q.isel({'X': slice(1, xid)})
+    q = remove_overlap_points(q, ds_grid['Depth'])
 
     # Save to a netcdf file
     proc, tile = pt
     outname = './' + proc + '/PV.' + tile + '.nc'
     q.to_netcdf(outname)
     return q
+
+
+def remove_overlap_points(ds, depth):
+    ''' Removes points from the tile which aren't boundary points and so
+    overlap with other tiles. Quantities along these edges are incorrect.
+
+    Arguments:
+        ds --> xarray dataset whose edge points we wish to remove
+        depth --> xarray dataarray containing the depth of the tile.
+
+    Returns:
+        ds --> xarray dataset, cropped to remove incorrect overlap points.
+    '''
+    North, South, East, West = PVG.is_boundary(depth)
+    if not North:
+        ds = ds.isel({'Y': slice(0, -1)})
+    if not South:
+        yid = ds.dims['Y']
+        ds = ds.isel({'Y': slice(1, yid)})
+    if not East:
+        ds = ds.isel({'X': slice(0, -1)})
+    if not West:
+        xid = ds.dims['X']
+        ds = ds.isel({'X': slice(1, xid)})
+    return ds
