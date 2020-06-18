@@ -263,13 +263,16 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
     hv_thread = Thread(target=lambda q, ds_vel, fCoriCos: q.put(
         hor_vort(ds_vel, fCoriCos)), args=(que, ds_vel, fCoriCos))
 
-    b_thread.start()
-    vv_thread.start()
-    hv_thread.start()
+    thread_list = [b_thread, vv_thread, hv_thread]
+    [thread.start() for thread in thread_list]
+    [thread.join() for thread in thread_list]
 
-    b_thread.join()
-    vv_thread.join()
-    hv_thread.join()
+    #b_thread.start()
+    #vv_thread.start()
+    #hv_thread.start()
+    #b_thread.join()
+    #vv_thread.join()
+    #hv_thread.join()
 
     # Extract variable from the que
     da_vvort, ds_b, ds_hvort = _drain_the_component_que(que)
