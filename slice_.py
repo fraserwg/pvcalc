@@ -60,9 +60,10 @@ def _open_dataset_slice(file_list, lat, ds_grid, variable):
         raise TypeError('variable must be either str or list')
     
     # The above block gives a list of datasets corresponding to the
-    # datasets in the slice.
+    # datasets in the slice. This should remain here.
     
     # Now let's select the data which is in the slice we want.
+    # This should be a sub-function
     dy = ds_grid.Yp1[1] - ds_grid.Yp1[0]
     try:
         ds_list = [ds.sel({'Y': [lat - dy, lat, lat + dy]},
@@ -79,6 +80,7 @@ def _open_dataset_slice(file_list, lat, ds_grid, variable):
         pass
     
     # We will go through the vertical dimensions and rename them properly
+    # Need to replace following section with PVG.format_vertical_coordinates
     Zmd_name = 'Zmd{:06d}'.format(ds_list[0].Nr)
     Zl_name = 'Zld{:06d}'.format(ds_list[0].Nr)
     Zu_name = 'Zud{:06d}'.format(ds_list[0].Nr)
@@ -119,46 +121,6 @@ def _open_dataset_slice(file_list, lat, ds_grid, variable):
     return ds_list
 
 
-def format_vertical_coordinates(ds, ds_grid):
-    ''' adds meaningful labels and depths to a dataset output by MITgcm diags
-
-    Arguments:
-        ds --> dataset that needs the verical coordinates formatting
-        ds_grid --> grid dataset containing Z, Zl and Zu coordinates which
-            correspond to the formatted depths we want to add to ds
-
-    Returns:
-        ds --> dataset with meainingful vertical coordinate labels and names
-            applied
-    '''
-    Zmd_name = 'Zmd{:06d}'.format(ds.Nr)
-    Zld_name = 'Zld{:06d}'.format(ds.Nr)
-    Zud_name = 'Zud{:06d}'.format(ds.Nr)
-
-    try:
-        ds.dims[Zmd_name]
-        ds[Zmd_name] = ds_grid['Z'].data
-        ds = ds.rename({Zmd_name: 'Z'})
-    except KeyError:
-        pass
-
-    try:
-        ds.dims[Zld_name]
-        ds[Zld_name] = ds_grid['Zl'].data
-        ds = ds.rename({Zld_name: 'Zl'})
-    except KeyError:
-        pass
-
-    try:
-        ds.dims[Zud_name]
-        ds[Zud_name] = ds_grid['Zu'].data
-        ds = ds.rename({Zud_name: 'Zu'})
-    except KeyError:
-        pass
-
-    return ds
-
-
 def open_tile(file, processor, tile, lat, variable=None):
     # Use glob to find all the files corresponding to the
     # tile containing relevant variables.
@@ -183,6 +145,7 @@ def open_tile(file, processor, tile, lat, variable=None):
         ds_var = xr.concat([ds for ds in ds_list], dim='T')
         
     # Establish boundary points
+    # The below should be put into PVG
     _, _, East, West = PVG.is_boundary(depth)
     
     if East:
