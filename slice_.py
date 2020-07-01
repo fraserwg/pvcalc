@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import xarray as xr
-import mds
 from glob import glob
 import warnings
 from threading import Thread
@@ -9,7 +8,7 @@ from queue import Queue
 import time
 from multiprocessing import Pool
 import general as PVG
-
+import MITgcmutils.mds as mds
 
 def is_tile_in_slice(proc, tile, lat):
     grid_fn = PVG.construct_grid_file_name(proc, tile)
@@ -118,6 +117,46 @@ def _open_dataset_slice(file_list, lat, ds_grid, variable):
         pass
 
     return ds_list
+
+
+def format_vertical_coordinates(ds, ds_grid):
+    ''' adds meaningful labels and depths to a dataset output by MITgcm diags
+
+    Arguments:
+        ds --> dataset that needs the verical coordinates formatting
+        ds_grid --> grid dataset containing Z, Zl and Zu coordinates which
+            correspond to the formatted depths we want to add to ds
+
+    Returns:
+        ds --> dataset with meainingful vertical coordinate labels and names
+            applied
+    '''
+    Zmd_name = 'Zmd{:06d}'.format(ds.Nr)
+    Zld_name = 'Zld{:06d}'.format(ds.Nr)
+    Zud_name = 'Zud{:06d}'.format(ds.Nr)
+
+    try:
+        ds.dims[Zmd_name]
+        ds[Zmd_name] = ds_grid['Z'].data
+        ds = ds.rename({Zmd_name: 'Z'})
+    except KeyError:
+        pass
+
+    try:
+        ds.dims[Zld_name]
+        ds[Zld_name] = ds_grid['Zl'].data
+        ds = ds.rename({Zld_name: 'Zl'})
+    except KeyError:
+        pass
+
+    try:
+        ds.dims[Zud_name]
+        ds[Zud_name] = ds_grid['Zu'].data
+        ds = ds.rename({Zud_name: 'Zu'})
+    except KeyError:
+        pass
+
+    return ds
 
 
 def open_tile(file, processor, tile, lat, variable=None):

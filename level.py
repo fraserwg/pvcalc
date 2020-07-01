@@ -2,7 +2,7 @@
 import time
 import os
 import xarray as xr
-import mds
+import MITgcmutils.mds as mds
 from glob import glob
 import warnings
 from threading import Thread
