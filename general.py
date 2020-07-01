@@ -31,11 +31,11 @@ def deconstruct_processor_tile_relation(fn):
     return processor, tile
 
 
-def is_boundary(depth):
+def is_boundary(da_depth):
     ''' Determines is a tile is a boundary tile
 
     Arguments:
-        depth --> xarray.dataarray or dataset object. Contains depth values for
+        da_depth --> xarray.dataarray object. Contains depth values for
             the tile.
 
     Returns:
@@ -51,13 +51,13 @@ def is_boundary(depth):
         boundary.
     '''
     North, South, East, West = False, False, False, False
-    if not depth.isel({'X': 1, 'Y': -1}).data:
+    if not da_depth.isel({'X': 1, 'Y': -1}).data:
         North = True
-    if not depth.isel({'X': 1, 'Y': 0}).data:
+    if not da_depth.isel({'X': 1, 'Y': 0}).data:
         South = True
-    if not depth.isel({'X': -1, 'Y': 1}).data:
+    if not da_depth.isel({'X': -1, 'Y': 1}).data:
         East = True
-    if not depth.isel({'X': 0, 'Y': 1}).data:
+    if not da_depth.isel({'X': 0, 'Y': 1}).data:
         West = True
     return North, South, East, West
 
