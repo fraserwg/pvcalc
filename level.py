@@ -13,6 +13,18 @@ import sys
 from . import general as PVG
 
 
+def _create_dataset_list(file_list, variable):
+    ''' To perform first part of _open_dataset_level
+    '''
+    ds_list = None
+    return ds_list
+
+def _select_dataset_levels(ds_list, ds_grid, lvl):
+    ''' To perform second part of _open_dataset_level
+    '''
+    return ds_list
+
+
 def _open_dataset_level(file_list, lvl, ds_grid, variable):
     if variable == None:
         ds_list = [xr.open_dataset(fn) for fn in file_list]
@@ -105,7 +117,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
     elif len(file_list) >= 1:
         ds_var = xr.concat([ds for ds in ds_list], dim='T')
 
-    # Establish boundary points
+    # Establish boundary points and remove them.
     ds_var = remove_boundary_points(ds_var, depth)
 
     return ds_var
@@ -196,7 +208,7 @@ def grad_b(ds_rho, rho_ref):
 
     Notes:
         rho_ref is NOT the density of the reference level. That is set to
-            1000 kg/m^3 in the below function.
+            1000 kg/m^3 in the below function
     '''
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
