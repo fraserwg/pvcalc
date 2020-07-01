@@ -34,3 +34,62 @@ def remove_y_coordinates(ds):
         pass
     
     return ds2d
+
+
+def remove_land_points(ds, da_depth=None):
+    ''' removes points corresponding to land from a 2D dataset
+
+    Arguments:
+        ds --> dataset to remove land points from
+
+    Keyword arguments:
+        da_depth --> xr.DataArray containing depth values
+
+    Returns:
+        ds --> dataset with land points removed
+
+    Notes:
+        - If da_depth is not given the function assumes that the Eastern and
+            Western grid points are over land.
+    '''
+
+    # If da_depth is provided check whether there are edge points
+    if da_depth is not None:    
+        if type(da_depth) is not xr.DataArray:
+            raise TypeError('type of da_depth should be xr.DataArray but given object is {}'.format(type(da_depth)))
+        if da_depth.isel({'X': 0}) == 0:
+            West = True
+        if da_depth.isel({'X': -1} == 0):
+            East = True
+    else:
+        West = True
+        East = True
+
+    # Remove the edge points
+    if East:
+        try:
+            xlen = ds.dims['X']
+            ds = ds.isel(X=slice(0, xlen - 1))
+        except KeyError:
+            pass
+
+        try:
+            xplen = ds.dims['Xp1']
+            ds = ds.isel(Xp1=slice(0, xplen - 1))
+        except KeyError:
+            pass
+
+    if West:
+        try:
+            xlen = ds.dims['X']
+            ds = ds.isel(X=slice(1, xlen))
+        except KeyError:
+            pass
+
+        try:
+            xplen = ds.dims['Xp1']
+            ds = ds.isel(Xp1=slice(1, xplen))
+        except KeyError:
+            pass
+
+    return ds
