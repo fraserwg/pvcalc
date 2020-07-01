@@ -87,3 +87,43 @@ def calc_q(ds_b, da_vvort, ds_hvort):
     q = xr.Dataset()
     q['potVort'] = vert + merid + zonal
     return q
+
+
+def format_vertical_coordinates(ds, ds_grid):
+    ''' adds meaningful labels and depths to a dataset output by MITgcm diags
+
+    Arguments:
+        ds --> dataset that needs the verical coordinates formatting
+        ds_grid --> grid dataset containing Z, Zl and Zu coordinates which
+            correspond to the formatted depths we want to add to ds
+
+    Returns:
+        ds --> dataset with meainingful vertical coordinate labels and names
+            applied
+    '''
+    Zmd_name = 'Zmd{:06d}'.format(ds.Nr)
+    Zld_name = 'Zld{:06d}'.format(ds.Nr)
+    Zud_name = 'Zud{:06d}'.format(ds.Nr)
+
+    try:
+        ds.dims[Zmd_name]
+        ds[Zmd_name] = ds_grid['Z'].data
+        ds = ds.rename({Zmd_name: 'Z'})
+    except KeyError:
+        pass
+
+    try:
+        ds.dims[Zld_name]
+        ds[Zld_name] = ds_grid['Zl'].data
+        ds = ds.rename({Zld_name: 'Zl'})
+    except KeyError:
+        pass
+
+    try:
+        ds.dims[Zud_name]
+        ds[Zud_name] = ds_grid['Zu'].data
+        ds = ds.rename({Zud_name: 'Zu'})
+    except KeyError:
+        pass
+
+    return ds
