@@ -1,4 +1,5 @@
 import xarray as xr
+from . import general as PVG
 
 
 def remove_y_coordinates(ds):
@@ -57,10 +58,17 @@ def remove_land_points(ds, da_depth=None):
     if da_depth is not None:    
         if type(da_depth) is not xr.DataArray:
             raise TypeError('type of da_depth should be xr.DataArray but given object is {}'.format(type(da_depth)))
+    
         if da_depth.isel({'X': 0}) == 0:
             West = True
-        if da_depth.isel({'X': -1} == 0):
+        else:
+            West = False
+    
+        if da_depth.isel({'X': -1}) == 0:
             East = True
+        else:
+            East = False
+    
     else:
         West = True
         East = True
@@ -95,13 +103,12 @@ def remove_land_points(ds, da_depth=None):
     return ds
 
 
-def post_process_files(in_fn, grid_fn, out_fn):
+def cleanup_dataset(ds, ds_grid):
     ''' applies post-processing to model output
 
     Args:
-        in_fn --> path to netcdf file to be processed
-        grid_fn --> path to netcdf file containing grid information
-        out_fn --> path to save processed file to
+        ds --> dataset to be post processed
+        ds_grid --> grid dataset corresponding to ds
 
     Returns:
         None
@@ -109,14 +116,13 @@ def post_process_files(in_fn, grid_fn, out_fn):
     Notes:
         - function removes y coordinates and land points, and formats the
             level data of a raw MITgcm netcdf output file.
-        - The function could be modified to return the resulting dataset.
     '''
-    # Open the ds and grid
-    ds = xr.open_dataset(in_fn)
-    grid = xr.open_dataset(grid_fn)
+    ds2d = remove_y_coordinates(ds)
+    ds2d_noedge = remove_land_points(ds2d, da_depth=ds_grid.Depth)
+    ds2d_noedge_zformat = PVG.format_vertical_coordinates(ds2d_noedge, ds_grid)
+    
+    return ds2d_noedge_zformat
 
-    # Perform the processing
-    ds2d = PV2D.remove_y_coordinates(ds)
-    ds2d_noedge = PV2D.remove_land_points(ds)
-    ds2d_noedge_zformat = PVG.format_vertical_coordinates(ds, grid)
-    ds2d_noedge_zformat.to_netcdf(out_fn)
+
+def calc_q(da_vvel, da_rhoanom, da_momVort3, da_f):
+    dvdz 
