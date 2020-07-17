@@ -9,8 +9,8 @@ from queue import Queue
 from multiprocessing import Pool
 import getopt
 import sys
-import general as PVG
-import slice_ as PVS
+import PVCALC.general as PVG
+import PVCALC.slice_ as PVS
 import logging
 import logging.handlers
 import time
