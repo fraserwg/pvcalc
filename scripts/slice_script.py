@@ -9,8 +9,8 @@ from queue import Queue
 from multiprocessing import Pool
 import getopt
 import sys
-import general as PVG
-import level as PVL
+import PVCALC.general as PVG
+import PVCALC.slice_ as PVS
 import logging
 import logging.handlers
 import time
@@ -20,16 +20,16 @@ if __name__ == '__main__':
     print(72 * '#')
     now = datetime.now()
     print('{} {}:{}:{}'.format(now.date(), now.hour, now.minute, now.second))
-    print('level_script.py')
+    print('slice_script.py')
     print(72 * '#' + '\n')
 
-    print('Welcome to level_script.py, a python utility for calculating PV')
+    print('Welcome to slice_script.py, a python utility for calculating PV')
     print('from MITgcm generated netcdf files.\n')
 
     print('Command line options:')
     print('-d --> input/output directory')
     print('-n --> number of processors to use')
-    print('-l --> model level to operate on')
+    print('-l --> latitude of slice (in m)')
     print('-F --> Full Coriolis component')
     print('-o --> Name of output file \n')
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         if o == '-d':
             run_folder = a
         elif o == '-l':
-            lvl = a
+            lat = a
         elif o == '-n':
             nprocs = a
         elif o == '-o':
@@ -65,9 +65,9 @@ if __name__ == '__main__':
         out_file = os.path.abspath('./gluPV.nc')
 
     try:
-        lvl = int(lvl)
+        lat = float(lat)
     except NameError:
-        lvl = 1
+        lat = 400e3
 
     try:
         fCoriCos = float(fCoriCos)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # Display the options
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
-    print('Operating on lvl {}'.format(lvl))
+    print('Operating at latitude {:.2f} km'.format(lat*1e-3))
     print('Number of processors used: {} \n'.format(nprocs))
 
     print(72 * '#' + '\n')
@@ -97,20 +97,29 @@ if __name__ == '__main__':
     grid_files = glob('mnc*/grid*')
     processor_tile = [PVG.deconstruct_processor_tile_relation(
         fn) for fn in grid_files]
-    ptlvl = [[elem, lvl, fCoriCos] for elem in processor_tile]
+    
+    tiles_in_slice = [elem for elem in processor_tile if PVS.is_tile_in_slice(*elem, lat)]
+    ptlat = [[elem, lat, fCoriCos] for elem in tiles_in_slice]
 
     tsearch = time.time() - t0
-    print('Found {} tiles \n'.format(len(ptlvl)))
+    print('Found {} tiles \n'.format(len(ptlat)))
 
     # Make sure some tiles are found
-    if len(ptlvl) == 0:
+    if len(ptlat) == 0:
         print('No tiles found, exiting PVCALC.py')
         sys.exit()
+    elif len(ptlat) < nprocs:
+        nprocs = len(ptlat)
+        print('Number of processors reduced to match number of tiles \n')
+        print('nprocs = {}'.format(nprocs))
+    
+        
+    # Of the tiles found, check which are in the desired slice
 
     # Calculate the PV in parallel (process based)
     print('Initialising process pool')
     with Pool(nprocs) as p:
-        pv_list = p.starmap(PVL.calc_pv_of_tile, ptlvl)
+        pv_list = p.starmap(PVS.calc_pv_of_tile, ptlat)
     tpool = time.time() - tsearch - t0
 
     # Merge the processed output
