@@ -1,2 +1,5 @@
 __pycache__
 PVCALC.egg-info
+*.ipynb
+.vscode
+*.ipynb_checkpoints
