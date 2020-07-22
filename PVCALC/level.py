@@ -100,7 +100,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
         raise FileNotFoundError(
             'No files matching {} exist'.format(search_pattern))
 
-    # Construct grid fn and open file
+    # Open the grid file
     grid_fn = PVG.construct_grid_file_name(processor, tile)
     ds_grid = xr.open_dataset(grid_fn)
     depth = ds_grid['Depth']
@@ -117,7 +117,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
     elif len(file_list) >= 1:
         ds_var = xr.concat(ds_list, dim='T')
 
-    # Establish any boundary points and remove them.
+    # Establish any land boundary points and remove them.
     ds_var = remove_boundary_points(ds_var, depth)
 
     return ds_var
