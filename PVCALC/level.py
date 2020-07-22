@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-import xarray as xr
-import MITgcmutils.mds as mds
+""" PVCALC.level
+
+Module contains functions used to calculate the PV of a model level.
+"""
 from glob import glob
 from threading import Thread
 from queue import Queue
+import xarray as xr
+import MITgcmutils.mds as mds
 from . import general as PVG
 
 
@@ -21,9 +25,9 @@ def _create_dataset_list(file_list, variable):
         ds_list (list) --> List of xarray.Dataset objects.
 
     """
-    if variable == None:
+    if variable is None:
         ds_list = [xr.open_dataset(fn) for fn in file_list]
-    elif type(variable) == list:
+    elif isinstance(variable, list):
         ds = xr.open_dataset(file_list[0])
         drop_list = [elem for elem in ds.data_vars]
         [drop_list.remove(var) for var in variable]
@@ -82,6 +86,16 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
 
 
 def open_tile(file, processor, tile, lvl=1, variable=None):
+    """ Opens all the file files for a particular tile
+
+    Arguments:
+        file (str) --> Prefix of file to open, e.g. 'Vorticity'.
+        processor (str) --> The processor folder, e.g 'mnc_0001'.
+        tile (str) --> The tile file suffix, e.g. 't001'.
+        lvl (int) --> The model level to operate on.
+        variable (list) --> The variables in the dataset to load, e.g.
+            ['UVEL', 'VVEL'] or None.
+    """
     # Construct the search pattern and list the associated files
     if file == 'grid':
         file_name = processor + '/' + file + '.' + tile + '.nc'
@@ -270,6 +284,24 @@ def abs_vort(ds_vert, ds_grid):
 
 
 def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
+    """ Function to calculate the PV of the tile and level.
+    Arguments:
+        proc_tile (tuple) --> tuple of processor and tile strings, e.g.
+            ('mnc_0001', 't003')
+        lvl (int) --> model level to calculate PV of.
+        fCoriCos (float) --> Non-traditional component of the Coriolis force.
+
+    Returns:
+        q (xarray.Dataset) --> dataset containing PV of the tile
+
+    Notes:
+        - The function opens all the required files and calculates the
+            quantities required to calculate PV using threads.
+        - It then retrieves the output of each thread and combines the output
+            to calculate the PV.
+        - Metadata is added to the resulting dataset. The data is then cleaned.
+        - The tile's PV is then saved as an intermediate netCDF file.
+    """
     pt = proc_tile
     ds_rho = open_tile('Rho', *pt, lvl=lvl)
     rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
@@ -290,13 +322,6 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
     thread_list = [b_thread, vv_thread, hv_thread]
     [thread.start() for thread in thread_list]
     [thread.join() for thread in thread_list]
-
-    #b_thread.start()
-    #vv_thread.start()
-    #hv_thread.start()
-    #b_thread.join()
-    #vv_thread.join()
-    #hv_thread.join()
 
     # Extract variable from the que
     da_vvort, ds_b, ds_hvort = _drain_the_component_que(que)
@@ -358,11 +383,11 @@ def _drain_the_component_que(que):
 
     Notes:
         This function is very hacky and specialised. It shouldn't normally be
-        accessed by the user. 
+        accessed by the user.
     '''
     while not que.empty():
         result = que.get()
-        if type(result) == xr.DataArray:
+        if isinstance(result, xr.DataArray):
             da_vvort = result
         else:
             try:
