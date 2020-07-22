@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
     # Merge the processed output
     print('Merging processed output')
-    ds_combined = xr.combine_by_coords(pv_list)
+    ds_combined = xr.combine_by_coords(pv_list, combine_attrs='override')
     tcombined = time.time() - tpool - tsearch - t0
 
     # Save the merged output
