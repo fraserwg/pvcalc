@@ -15,6 +15,7 @@ import logging
 import logging.handlers
 import time
 from datetime import datetime
+from packaging import version
 
 if __name__ == '__main__':
     print(72 * '#')
@@ -115,7 +116,11 @@ if __name__ == '__main__':
 
     # Merge the processed output
     print('Merging processed output')
-    ds_combined = xr.combine_by_coords(pv_list, combine_attrs='override')
+    if version.parse(xr.__version__) >= version.parse("0.16"):
+        ds_combined = xr.combine_by_coords(pv_list, combine_attrs='override')
+    else:
+        ds_combined = xr.combine_by_coords(pv_list)
+    
     tcombined = time.time() - tpool - tsearch - t0
 
     # Save the merged output
