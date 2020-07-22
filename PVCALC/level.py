@@ -14,8 +14,19 @@ from . import general as PVG
 
 
 def _create_dataset_list(file_list, variable):
-    ''' To perform first part of _open_dataset_level
-    '''
+    """ opens the requested datasets and selects the variable of interest
+
+    Arguments:
+        file_list (list) -->  List of paths to the files to be opened. Each
+            element of the list typically corresponds to the same tile but a
+            different time period.
+        variable (list or None) --> List of variables to load. If None, will
+            load all present.
+
+    Returns:
+        ds_list (list) --> List of xarray.Dataset objects.
+
+    """
     if variable == None:
         ds_list = [xr.open_dataset(fn) for fn in file_list]
     elif type(variable) == list:
@@ -24,25 +35,27 @@ def _create_dataset_list(file_list, variable):
         [drop_list.remove(var) for var in variable]
         ds_list = [xr.open_dataset(fn).drop_vars(drop_list)
                    for fn in file_list]
-    elif type(variable) == str:
-        ds = xr.open_dataset(file_list[0])
-        drop_list = [elem for elem in ds.data_vars]
-        drop_list.remove(variable)
-        ds_list = [xr.open_dataset(fn).drop_vars(drop_list)
-                   for fn in file_list]
     else:
-        raise TypeError('variable must be either str or list')
+        raise TypeError('variable must be either list or None')
     return ds_list
 
 def _select_dataset_levels(ds_list, ds_grid, lvl):
-    ''' To perform second part of _open_dataset_level
-    '''
-    return ds_list
+    """ selects the requested dataset level and those surrounding it
 
+    Arguments:
+        ds_list (list) -->  List of datasets we are selecting levels for
+        ds_grid (xarray.Dataset) --> The grid file of the tile.
+        lvl (int) --> The model level we are selecting.
 
-def _open_dataset_level(file_list, lvl, ds_grid, variable):
-    ds_list = _create_dataset_list(file_list, variable)
-    
+    Returns:
+        ds_list (list) --> List of xarray.Dataset objects.
+
+    Notes:
+        - Variables are selected at the cell centre of the requested level,
+            and the cell centres above and below. Variables not on cell centres
+            are selected half a cell above and below the requested level.
+    """
+
     Zmd_name = 'Zmd{:06d}'.format(ds_list[0].Nr)
     Zl_name = 'Zld{:06d}'.format(ds_list[0].Nr)
     Zu_name = 'Zud{:06d}'.format(ds_list[0].Nr)
@@ -112,7 +125,13 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
     ds_grid = xr.open_dataset(grid_fn)
     depth = ds_grid['Depth']
 
-    ds_list = _open_dataset_level(file_list, lvl, ds_grid, variable)
+    ds_list = _create_dataset_list(file_list, variable)
+    ds_list = _select_dataset_levels(ds_list, ds_grid, lvl)
+    
+    # Should refactor _select_dataset_levels so I can use the below line.
+    # Go through the vertical dimensions and rename them properly
+    #ds_list = [PVG.format_vertical_coordinates(ds, ds_grid) for ds in ds_list]
+
     if len(file_list) == 1:
         # No temporal joining necessary
         ds_var = ds_list[0]
