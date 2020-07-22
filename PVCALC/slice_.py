@@ -79,45 +79,8 @@ def _open_dataset_slice(file_list, lat, ds_grid, variable):
     except ValueError:
         pass
     
-    # We will go through the vertical dimensions and rename them properly
-    # Need to replace following section with PVG.format_vertical_coordinates
-    Zmd_name = 'Zmd{:06d}'.format(ds_list[0].Nr)
-    Zl_name = 'Zld{:06d}'.format(ds_list[0].Nr)
-    Zu_name = 'Zud{:06d}'.format(ds_list[0].Nr)
-
-    try:
-        [ds.dims[Zmd_name] for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zmd_name] = ds_grid['Z'].data
-            ds_var = ds_var.rename({Zmd_name: 'Z'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
-    except KeyError:
-        pass
-
-    try:
-        [ds.dims[Zl_name] for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zl_name] = ds_grid['Zl'].data
-            ds_var = ds_var.rename({Zl_name: 'Zl'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
-    except KeyError:
-        pass
-
-    try:
-        [ds.dims[Zu_name] for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zu_name] = ds_grid['Zu'].data
-            ds_var = ds_var.rename({Zu_name: 'Zu'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
-    except KeyError:
-        pass
-
+    # Go through the vertical dimensions and rename them properly
+    ds_list = [PVG.format_vertical_coordinates(ds, ds_grid) for ds in ds_list]
     return ds_list
 
 
