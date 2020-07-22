@@ -44,11 +44,13 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
 
     Arguments:
         ds_list (list) -->  List of datasets we are selecting levels for
-        ds_grid (xarray.Dataset) --> The grid file of the tile.
+        ds_grid (xarray.Dataset) --> The grid ds of the tile.
         lvl (int) --> The model level we are selecting.
 
     Returns:
         ds_list (list) --> List of xarray.Dataset objects.
+        ds_grid (xarray.Dataset) --> The grid ds for the tile with the same
+            vertical levels of the items in ds_list
 
     Notes:
         - Variables are selected at the cell centre of the requested level,
@@ -64,24 +66,14 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
         [ds.dims[Zmd_name] for ds in ds_list]
         ds_list = [ds.isel({Zmd_name: slice(lvl - 1, lvl + 2)})
                    for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zmd_name] = ds_grid['Z'].data[slice(lvl - 1, lvl + 2)]
-            ds_var = ds_var.rename({Zmd_name: 'Z'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
+        ds_grid = ds_grid.isel({'Z': slice(lvl - 1, lvl + 2)})
     except KeyError:
         pass
 
     try:
         [ds.dims[Zl_name] for ds in ds_list]
         ds_list = [ds.isel({Zl_name: slice(lvl, lvl + 2)}) for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zl_name] = ds_grid['Zl'].data[slice(lvl, lvl + 2)]
-            ds_var = ds_var.rename({Zl_name: 'Zl'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
+        ds_grid = ds_grid.isel({'Zl': slice(lvl, lvl + 2)})
     except KeyError:
         pass
 
@@ -89,22 +81,10 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
         [ds.dims[Zu_name] for ds in ds_list]
         ds_list = [ds.isel({Zu_name: slice(lvl - 1, lvl + 1)})
                    for ds in ds_list]
-        ds_var[Zu_name] = ds_grid['Zu'].data[slice(lvl - 1, lvl + 1)]
-        ds_var = ds_var.rename({Zu_name: 'Zu'})
-
-        [ds.dims[Zu_name] for ds in ds_list]
-        ds_list = [ds.isel({Zu_name: slice(lvl - 1, lvl + 1)})
-                   for ds in ds_list]
-        ds_list2 = list()
-        for ds_var in ds_list:
-            ds_var[Zu_name] = ds_grid['Zu'].data[slice(lvl - 1, lvl + 1)]
-            ds_var = ds_var.rename({Zu_name: 'Zu'})
-            ds_list2 += [ds_var]
-        ds_list = ds_list2
+        ds_grid = ds_grid.isel({'Zu': slice(lvl - 1, lvl + 1)})
     except KeyError:
         pass
-
-    return ds_list
+    return ds_list, ds_grid
 
 
 def open_tile(file, processor, tile, lvl=1, variable=None):
@@ -125,20 +105,19 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
     ds_grid = xr.open_dataset(grid_fn)
     depth = ds_grid['Depth']
 
+    # Open each dataset in the file list, select the vertical levels and rename
+    # the vertical levels appropriately
     ds_list = _create_dataset_list(file_list, variable)
-    ds_list = _select_dataset_levels(ds_list, ds_grid, lvl)
-    
-    # Should refactor _select_dataset_levels so I can use the below line.
-    # Go through the vertical dimensions and rename them properly
-    #ds_list = [PVG.format_vertical_coordinates(ds, ds_grid) for ds in ds_list]
+    ds_list, ds_grid = _select_dataset_levels(ds_list, ds_grid, lvl)
+    ds_list = [PVG.format_vertical_coordinates(ds, ds_grid) for ds in ds_list]
 
+    # Check if we have to join along the 'T' axis and do so if required
     if len(file_list) == 1:
-        # No temporal joining necessary
         ds_var = ds_list[0]
     elif len(file_list) >= 1:
         ds_var = xr.concat(ds_list, dim='T')
 
-    # Establish boundary points and remove them.
+    # Establish any boundary points and remove them.
     ds_var = remove_boundary_points(ds_var, depth)
 
     return ds_var
