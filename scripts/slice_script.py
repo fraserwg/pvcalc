@@ -1,40 +1,38 @@
 #!/usr/bin/env python3
+"""
+########################################################################
+slice_script.py
+########################################################################
+
+Welcome to slice_script.py, a python utility for calculating PV
+from MITgcm generated netcdf files.
+
+Command line options:
+-d --> input/output directory
+-n --> number of processors to use
+-l --> latitude of slice (in m)
+-F --> Full Coriolis component
+-o --> Name of output file 
+
+########################################################################
+"""
 import os
-import xarray as xr
-import MITgcmutils.mds as mds
 from glob import glob
-import warnings
-from threading import Thread
-from queue import Queue
 from multiprocessing import Pool
 import getopt
 import sys
-import PVCALC.general as PVG
-import PVCALC.slice_ as PVS
-import logging
-import logging.handlers
 import time
 from datetime import datetime
 from packaging import version
+import xarray as xr
+import PVCALC.general as PVG
+import PVCALC.slice_ as PVS
 
 if __name__ == '__main__':
-    print(72 * '#')
+    print(__doc__)
     now = datetime.now()
-    print('{} {}:{}:{}'.format(now.date(), now.hour, now.minute, now.second))
-    print('slice_script.py')
-    print(72 * '#' + '\n')
+    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
 
-    print('Welcome to slice_script.py, a python utility for calculating PV')
-    print('from MITgcm generated netcdf files.\n')
-
-    print('Command line options:')
-    print('-d --> input/output directory')
-    print('-n --> number of processors to use')
-    print('-l --> latitude of slice (in m)')
-    print('-F --> Full Coriolis component')
-    print('-o --> Name of output file \n')
-
-    print(72 * '#' + '\n')
 
     # Read in command line options
     args = sys.argv[1:]
@@ -98,7 +96,7 @@ if __name__ == '__main__':
     grid_files = glob('mnc*/grid*')
     processor_tile = [PVG.deconstruct_processor_tile_relation(
         fn) for fn in grid_files]
-    
+
     tiles_in_slice = [elem for elem in processor_tile if PVS.is_tile_in_slice(*elem, lat)]
     ptlat = [[elem, lat, fCoriCos] for elem in tiles_in_slice]
 
@@ -113,8 +111,8 @@ if __name__ == '__main__':
         nprocs = len(ptlat)
         print('Number of processors reduced to match number of tiles \n')
         print('nprocs = {}'.format(nprocs))
-    
-        
+
+
     # Of the tiles found, check which are in the desired slice
 
     # Calculate the PV in parallel (process based)
