@@ -3,3 +3,6 @@ PVCALC.egg-info
 *.ipynb
 .vscode
 *.ipynb_checkpoints
+*.nc
+RhoRef.*
+*.out
