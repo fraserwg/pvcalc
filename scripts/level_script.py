@@ -1,40 +1,36 @@
 #!/usr/bin/env python3
+"""
+########################################################################
+level_script.py
+########################################################################
+Welcome to level_script.py, a python utility for calculating PV from
+MITgcm generated netCDF files.
+
+Command line options:
+-d --> input/output directory
+-n --> number of processors to use
+-l --> model level to operate on
+-F --> Full Coriolis component
+-o --> Name of output file
+
+########################################################################
+"""
 import os
-import xarray as xr
-import MITgcmutils.mds as mds
 from glob import glob
-import warnings
-from threading import Thread
-from queue import Queue
 from multiprocessing import Pool
 import getopt
 import sys
-import PVCALC.general as PVG
-import PVCALC.level as PVL
-import logging
-import logging.handlers
 import time
 from datetime import datetime
 from packaging import version
+import xarray as xr
+import PVCALC.general as PVG
+import PVCALC.level as PVL
 
 if __name__ == '__main__':
-    print(72 * '#')
+    print(__doc__)
     now = datetime.now()
-    print('{} {}:{}:{}'.format(now.date(), now.hour, now.minute, now.second))
-    print('level_script.py')
-    print(72 * '#' + '\n')
-
-    print('Welcome to level_script.py, a python utility for calculating PV')
-    print('from MITgcm generated netcdf files.\n')
-
-    print('Command line options:')
-    print('-d --> input/output directory')
-    print('-n --> number of processors to use')
-    print('-l --> model level to operate on')
-    print('-F --> Full Coriolis component')
-    print('-o --> Name of output file \n')
-
-    print(72 * '#' + '\n')
+    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
 
     # Read in command line options
     args = sys.argv[1:]
@@ -120,7 +116,7 @@ if __name__ == '__main__':
         ds_combined = xr.combine_by_coords(pv_list, combine_attrs='override')
     else:
         ds_combined = xr.combine_by_coords(pv_list)
-    
+
     tcombined = time.time() - tpool - tsearch - t0
 
     # Save the merged output
