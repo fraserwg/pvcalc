@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-import time
-import os
 import xarray as xr
 import MITgcmutils.mds as mds
 from glob import glob
-import warnings
 from threading import Thread
 from queue import Queue
-from multiprocessing import Pool
-import getopt
-import sys
 from . import general as PVG
 
 
