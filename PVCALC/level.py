@@ -16,7 +16,22 @@ from . import general as PVG
 def _create_dataset_list(file_list, variable):
     ''' To perform first part of _open_dataset_level
     '''
-    ds_list = None
+    if variable == None:
+        ds_list = [xr.open_dataset(fn) for fn in file_list]
+    elif type(variable) == list:
+        ds = xr.open_dataset(file_list[0])
+        drop_list = [elem for elem in ds.data_vars]
+        [drop_list.remove(var) for var in variable]
+        ds_list = [xr.open_dataset(fn).drop_vars(drop_list)
+                   for fn in file_list]
+    elif type(variable) == str:
+        ds = xr.open_dataset(file_list[0])
+        drop_list = [elem for elem in ds.data_vars]
+        drop_list.remove(variable)
+        ds_list = [xr.open_dataset(fn).drop_vars(drop_list)
+                   for fn in file_list]
+    else:
+        raise TypeError('variable must be either str or list')
     return ds_list
 
 def _select_dataset_levels(ds_list, ds_grid, lvl):
@@ -26,21 +41,8 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
 
 
 def _open_dataset_level(file_list, lvl, ds_grid, variable):
-    if variable == None:
-        ds_list = [xr.open_dataset(fn) for fn in file_list]
-    elif type(variable) == list:
-        ds = xr.open_dataset(file_list[0])
-        drop_list = [elem for elem in ds.data_vars]
-        [drop_list.remove(var) for var in variable]
-        ds_list = [xr.open_dataset(fn).drop_vars(drop_list) for fn in file_list]
-    elif type(variable) == str:
-        ds = xr.open_dataset(file_list[0])
-        drop_list = [elem for elem in ds.data_vars]
-        drop_list.remove(variable)
-        ds_list = [xr.open_dataset(fn).drop_vars(drop_list) for fn in file_list]
-    else:
-        raise TypeError('variable must be either str or list')
-
+    ds_list = _create_dataset_list(file_list, variable)
+    
     Zmd_name = 'Zmd{:06d}'.format(ds_list[0].Nr)
     Zl_name = 'Zld{:06d}'.format(ds_list[0].Nr)
     Zu_name = 'Zud{:06d}'.format(ds_list[0].Nr)
@@ -115,7 +117,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
         # No temporal joining necessary
         ds_var = ds_list[0]
     elif len(file_list) >= 1:
-        ds_var = xr.concat([ds for ds in ds_list], dim='T')
+        ds_var = xr.concat(ds_list, dim='T')
 
     # Establish boundary points and remove them.
     ds_var = remove_boundary_points(ds_var, depth)
