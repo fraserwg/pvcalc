@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+""" PVCALC.general
+
+This module contains functions which are used by two or more of the
+specialised submodules.
+"""
 import xarray as xr
 
 def construct_grid_file_name(processor, tile):
@@ -42,7 +47,7 @@ def is_boundary(da_depth):
         North --> boolean, True if northern boundary tile.
         South --> boolean, True if southern boundary tile.
         East --> boolean, True if eastern boundary tile.
-        West --> boolean, True if western boundary tile.  
+        West --> boolean, True if western boundary tile.
 
     Notes:
         The function only works if the boundary is a straight line along
