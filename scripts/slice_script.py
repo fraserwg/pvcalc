@@ -8,11 +8,12 @@ Welcome to slice_script.py, a python utility for calculating PV
 from MITgcm generated netcdf files.
 
 Command line options:
--d --> input/output directory
--n --> number of processors to use
--l --> latitude of slice (in m)
+-d --> Input/output directory
+-n --> Number of processors to use
+-l --> Latitude of slice (in m)
 -F --> Full Coriolis component
--o --> Name of output file 
+-o --> Name of output file
+-psi --> Calculate the streamfunction
 
 ########################################################################
 """
@@ -49,6 +50,8 @@ if __name__ == '__main__':
             out_file = a
         elif o == '-F':
             fCoriCos = a
+        elif o == '-psi':
+            calc_psi = True
         else:
             raise NotImplementedError('Option {} not supported'.format(o))
 
@@ -78,6 +81,11 @@ if __name__ == '__main__':
     except NameError:
         run_folder = os.path.abspath(os.getcwd())
 
+    try:
+        calc_psi
+    except NameError:
+        calc_psi = False
+
     # Display the options
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
@@ -98,7 +106,11 @@ if __name__ == '__main__':
         fn) for fn in grid_files]
 
     tiles_in_slice = [elem for elem in processor_tile if PVS.is_tile_in_slice(*elem, lat)]
-    ptlat = [[elem, lat, fCoriCos] for elem in tiles_in_slice]
+    
+    if calc_psi:
+        ptlat = [[elem, lat] for elem in tiles_in_slice]
+    else:
+        ptlat = [[elem, lat, fCoriCos] for elem in tiles_in_slice]
 
     tsearch = time.time() - t0
     print('Found {} tiles \n'.format(len(ptlat)))
@@ -118,7 +130,10 @@ if __name__ == '__main__':
     # Calculate the PV in parallel (process based)
     print('Initialising process pool')
     with Pool(nprocs) as p:
-        pv_list = p.starmap(PVS.calc_pv_of_tile, ptlat)
+        if calc_psi:
+            pv_list = p.starmap(PVS.approximate_overturning_streamfunction, ptlat)
+        else:
+            pv_list = p.starmap(PVS.calc_pv_of_tile, ptlat)
     tpool = time.time() - tsearch - t0
 
     # Merge the processed output

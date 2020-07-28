@@ -272,3 +272,14 @@ def calc_pv_of_tile(proc_tile, lat, fCoriCos):
         xid = q.dims['X']
         q = q.isel({'X': slice(1, xid)})
     return q
+
+def approximate_overturning_streamfunction(proc_tile, lat):
+    # convention: positive = anticlockwise
+    dsvel = open_tile('Velocity', *proc_tile, lat, variable='WVEL')
+    psi = -dsvel.WVEL[:, ::-1].cumsum('X')[:, ::-1] * 2e3
+    psi = psi.to_dataset(name='psi')
+    psi.attrs = {'long_name': 'overturning stream function',
+                 'calculated_from': 'WVEL',
+                 'sign_convention': 'positive = anticlockwise',
+                 'units': 'm^2 s^{-1}'}
+    return psi
