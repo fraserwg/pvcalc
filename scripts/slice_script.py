@@ -13,7 +13,7 @@ Command line options:
 -l --> Latitude of slice (in m)
 -F --> Full Coriolis component
 -o --> Name of output file
--psi --> Calculate the streamfunction
+-p --> Calculate the streamfunction
 
 ########################################################################
 """
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     # Read in command line options
     args = sys.argv[1:]
-    opts, args = getopt.getopt(args, 'd:l:n:F:o:')
+    opts, args = getopt.getopt(args, 'd:l:n:F:o:p' )
 
     for o, a in opts:
         if o == '-d':
@@ -50,7 +50,7 @@ if __name__ == '__main__':
             out_file = a
         elif o == '-F':
             fCoriCos = a
-        elif o == '-psi':
+        elif o == '-p':
             calc_psi = True
         else:
             raise NotImplementedError('Option {} not supported'.format(o))
