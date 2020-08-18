@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 """
-########################################################################
+##############################################################################
 level_script.py
-########################################################################
+##############################################################################
+
 Welcome to level_script.py, a python utility for calculating PV from
 MITgcm generated netCDF files.
 
-Command line options:
--d --> input/output directory
--n --> number of processors to use
--l --> model level to operate on
--F --> Full Coriolis component
--o --> Name of output file
-
-########################################################################
+##############################################################################
 """
+
 import os
+import argparse
 from glob import glob
 from multiprocessing import Pool
 import getopt
@@ -29,60 +25,38 @@ import PVCALC.level as PVL
 
 if __name__ == '__main__':
     print(__doc__)
-    now = datetime.now()
-    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
 
-    # Read in command line options
-    args = sys.argv[1:]
-    opts, args = getopt.getopt(args, 'd:l:n:F:o:')
+    parser = argparse.ArgumentParser(prog='level_script.py')
 
-    for o, a in opts:
-        if o == '-d':
-            run_folder = a
-        elif o == '-l':
-            lvl = a
-        elif o == '-n':
-            nprocs = a
-        elif o == '-o':
-            out_file = a
-        elif o == '-F':
-            fCoriCos = a
-        else:
-            raise NotImplementedError('Option {} not supported'.format(o))
+    parser.add_argument('-n', help='Number of processes to use',
+                        type=int, default=1, dest='nprocs')
+    parser.add_argument('--dir', help='Working directory',
+                        type=os.path.abspath, default='./', dest='run_folder')
+    parser.add_argument('--out', help='Name of output file',
+                        type=os.path.abspath, default='./gluPV.nc', dest='out_file')
+    parser.add_argument('--lvl', help='Vertical level to operate on',
+                        type=int, default=1, dest='lvl')
+    parser.add_argument('--fCoriCos', help='Component of the complete Coriolis Force',
+                        type=float, default=0, dest='fCoriCos')
 
-    # Force the command lines options into correct format
-    try:
-        nprocs = int(nprocs)
-    except NameError:
+    cl_args = parser.parse_args()
+    parser.print_help()
+    locals().update(vars(cl_args))
+    if nprocs == -1:
         nprocs = os.cpu_count()
 
-    try:
-        out_file = os.path.abspath(out_file)
-    except NameError:
-        out_file = os.path.abspath('./gluPV.nc')
-
-    try:
-        lvl = int(lvl)
-    except NameError:
-        lvl = 1
-
-    try:
-        fCoriCos = float(fCoriCos)
-    except NameError:
-        fCoriCos = 0
-
-    try:
-        run_folder = os.path.abspath(run_folder)
-    except NameError:
-        run_folder = os.path.abspath(os.getcwd())
+    print()
+    print(78 * '#' + '\n')
 
     # Display the options
+    now = datetime.now()
+    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
     print('Operating on lvl {}'.format(lvl))
     print('Number of processors used: {} \n'.format(nprocs))
 
-    print(72 * '#' + '\n')
+    print(78 * '#' + '\n')
 
 
     t0 = time.time()
