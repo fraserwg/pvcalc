@@ -24,27 +24,35 @@ import PVCALC.slice_ as PVS
 
 if __name__ == '__main__':
     print(__doc__)
-    now = datetime.now()
-    #print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
-    parser = argparse.ArgumentParser(prog='slice_script.py')
-    
-    parser.add_argument('-n', help='Number of processes to use', type=int, default=os.cpu_count(), dest='nprocs')
-    parser.add_argument('--dir', help='Working directory', type=os.path.abspath, default='./', dest='run_folder')
-    parser.add_argument('--out', help='Name of output file', type=os.path.abspath, default='./gluPV.nc', dest='out_file')
-    parser.add_argument('--lat', help='Latitude of slice (in m)', type=float, default=400e3, dest='lat')
-    parser.add_argument('--fCoriCos', help='Component of the complete Coriolis Force', type=float, default=0, dest='fCoriCos')
-    parser.add_argument('--psi', action='store_true', help='Calculate the streamfunction instead of PV', dest='calc_psi')
 
+    parser = argparse.ArgumentParser(prog='slice_script.py')
+
+    parser.add_argument('-n', help='Number of processes to use',
+                        type=int, default=1, dest='nprocs')
+    parser.add_argument('--dir', help='Working directory',
+                        type=os.path.abspath, default='./', dest='run_folder')
+    parser.add_argument('--out', help='Name of output file',
+                        type=os.path.abspath, default='./gluPV.nc', dest='out_file')
+    parser.add_argument('--lat', help='Latitude of slice (in m)',
+                        type=float, default=400e3, dest='lat')
+    parser.add_argument('--fCoriCos', help='Component of the complete Coriolis Force',
+                        type=float, default=0, dest='fCoriCos')
+    parser.add_argument('--psi', action='store_true',
+                        help='Calculate the streamfunction instead of PV', dest='calc_psi')
 
     cl_args = parser.parse_args()
     parser.print_help()
     locals().update(vars(cl_args))
+    if nprocs == -1:
+        nprocs = os.cpu_count()
 
     print()
     print(78 * '#' + '\n')
 
-
     # Display the options
+    now = datetime.now()
+    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
+
     if calc_psi:
         print('Calculating streamfunction')
     print('run folder set to {}'.format(run_folder))
@@ -53,7 +61,6 @@ if __name__ == '__main__':
     print('fCoriCos set to {} s^-1'.format(fCoriCos))
     print('Number of processors used: {} \n'.format(nprocs))
     print(78 * '#' + '\n')
-
 
     t0 = time.time()
     # Change directory to the run folder
@@ -65,8 +72,9 @@ if __name__ == '__main__':
     processor_tile = [PVG.deconstruct_processor_tile_relation(
         fn) for fn in grid_files]
 
-    tiles_in_slice = [elem for elem in processor_tile if PVS.is_tile_in_slice(*elem, lat)]
-    
+    tiles_in_slice = [
+        elem for elem in processor_tile if PVS.is_tile_in_slice(*elem, lat)]
+
     if calc_psi:
         ptlat = [[elem, lat] for elem in tiles_in_slice]
     else:
@@ -84,14 +92,14 @@ if __name__ == '__main__':
         print('Number of processors reduced to match number of tiles \n')
         print('nprocs = {}'.format(nprocs))
 
-
     # Of the tiles found, check which are in the desired slice
 
     # Calculate the PV in parallel (process based)
     print('Initialising process pool')
     with Pool(nprocs) as p:
         if calc_psi:
-            pv_list = p.starmap(PVS.approximate_overturning_streamfunction, ptlat)
+            pv_list = p.starmap(
+                PVS.approximate_overturning_streamfunction, ptlat)
         else:
             pv_list = p.starmap(PVS.calc_pv_of_tile, ptlat)
     tpool = time.time() - tsearch - t0
