@@ -1,26 +1,19 @@
 #!/usr/bin/env python3
 """
-########################################################################
+##############################################################################
 slice_script.py
-########################################################################
+##############################################################################
 
-Welcome to slice_script.py, a python utility for calculating PV
-from MITgcm generated netcdf files.
+Welcome to slice_script.py, a python utility for calculating PV and
+overturning streamfunctions from MITgcm generated netcdf files.
 
-Command line options:
--d --> Input/output directory
--n --> Number of processors to use
--l --> Latitude of slice (in m)
--F --> Full Coriolis component
--o --> Name of output file
--p --> Calculate the streamfunction
-
-########################################################################
+##############################################################################
 """
+
 import os
+import argparse
 from glob import glob
 from multiprocessing import Pool
-import getopt
 import sys
 import time
 from datetime import datetime
@@ -32,67 +25,34 @@ import PVCALC.slice_ as PVS
 if __name__ == '__main__':
     print(__doc__)
     now = datetime.now()
-    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
+    #print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
+    parser = argparse.ArgumentParser(prog='slice_script.py')
+    
+    parser.add_argument('-n', help='Number of processes to use', type=int, default=os.cpu_count(), dest='nprocs')
+    parser.add_argument('--dir', help='Working directory', type=os.path.abspath, default='./', dest='run_folder')
+    parser.add_argument('--out', help='Name of output file', type=os.path.abspath, default='./gluPV.nc', dest='out_file')
+    parser.add_argument('--lat', help='Latitude of slice (in m)', type=float, default=400e3, dest='lat')
+    parser.add_argument('--fCoriCos', help='Component of the complete Coriolis Force', type=float, default=0, dest='fCoriCos')
+    parser.add_argument('--psi', action='store_true', help='Calculate the streamfunction instead of PV', dest='calc_psi')
 
 
-    # Read in command line options
-    args = sys.argv[1:]
-    opts, args = getopt.getopt(args, 'd:l:n:F:o:p' )
+    cl_args = parser.parse_args()
+    parser.print_help()
+    locals().update(vars(cl_args))
 
-    for o, a in opts:
-        if o == '-d':
-            run_folder = a
-        elif o == '-l':
-            lat = a
-        elif o == '-n':
-            nprocs = a
-        elif o == '-o':
-            out_file = a
-        elif o == '-F':
-            fCoriCos = a
-        elif o == '-p':
-            calc_psi = True
-        else:
-            raise NotImplementedError('Option {} not supported'.format(o))
+    print()
+    print(78 * '#' + '\n')
 
-    # Force the command lines options into correct format
-    try:
-        nprocs = int(nprocs)
-    except NameError:
-        nprocs = os.cpu_count()
-
-    try:
-        out_file = os.path.abspath(out_file)
-    except NameError:
-        out_file = os.path.abspath('./gluPV.nc')
-
-    try:
-        lat = float(lat)
-    except NameError:
-        lat = 400e3
-
-    try:
-        fCoriCos = float(fCoriCos)
-    except NameError:
-        fCoriCos = 0
-
-    try:
-        run_folder = os.path.abspath(run_folder)
-    except NameError:
-        run_folder = os.path.abspath(os.getcwd())
-
-    try:
-        calc_psi
-    except NameError:
-        calc_psi = False
 
     # Display the options
+    if calc_psi:
+        print('Calculating streamfunction')
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
     print('Operating at latitude {:.2f} km'.format(lat*1e-3))
+    print('fCoriCos set to {} s^-1'.format(fCoriCos))
     print('Number of processors used: {} \n'.format(nprocs))
-
-    print(72 * '#' + '\n')
+    print(78 * '#' + '\n')
 
 
     t0 = time.time()
