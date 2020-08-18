@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     # Display the options
     now = datetime.now()
-    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
+    print('{} {:02d}:{:02d}:{:02d} \n'.format(now.date(), now.hour, now.minute, now.second))
 
     if calc_psi:
         print('Calculating streamfunction')
@@ -84,8 +84,10 @@ if __name__ == '__main__':
     print('Found {} tiles \n'.format(len(ptlat)))
 
     # Make sure some tiles are found
-    if len(ptlat) == 0:
-        print('No tiles found, exiting PVCALC.py')
+    if not ptlat:
+        print('No tiles found, exiting slice_script.py')
+        print()
+        print(78 * '#')
         sys.exit()
     elif len(ptlat) < nprocs:
         nprocs = len(ptlat)

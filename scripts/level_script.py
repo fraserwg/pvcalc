@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     # Display the options
     now = datetime.now()
-    print('{} {}:{}:{} \n'.format(now.date(), now.hour, now.minute, now.second))
+    print('{} {:02d}:{:02d}:{:02d} \n'.format(now.date(), now.hour, now.minute, now.second))
     print('run folder set to {}'.format(run_folder))
     print('Output will be saved to {}'.format(out_file))
     print('Operating on lvl {}'.format(lvl))
@@ -74,9 +74,15 @@ if __name__ == '__main__':
     print('Found {} tiles \n'.format(len(ptlvl)))
 
     # Make sure some tiles are found
-    if len(ptlvl) == 0:
-        print('No tiles found, exiting PVCALC.py')
+    if not ptlvl:
+        print('No tiles found, exiting level_script.py')
+        print()
+        print(78 * '#')
         sys.exit()
+    elif len(ptlvl) < nprocs:
+        nprocs = len(ptlvl)
+        print('Number of processors reduced to match number of tiles \n')
+        print('nprocs = {}'.format(nprocs))
 
     # Calculate the PV in parallel (process based)
     print('Initialising process pool')
