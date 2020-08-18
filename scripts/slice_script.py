@@ -31,6 +31,8 @@ if __name__ == '__main__':
                         type=int, default=1, dest='nprocs')
     parser.add_argument('--dir', help='Working directory',
                         type=os.path.abspath, default='./', dest='run_folder')
+    parser.add_argument('--mnc', help='mnc_dir regexp',
+                        type=str, default='mnc_*', dest='mnc_dir')
     parser.add_argument('--out', help='Name of output file',
                         type=os.path.abspath, default='./gluPV.nc', dest='out_file')
     parser.add_argument('--lat', help='Latitude of slice (in m)',
@@ -56,6 +58,7 @@ if __name__ == '__main__':
     if calc_psi:
         print('Calculating streamfunction')
     print('run folder set to {}'.format(run_folder))
+    print('mnc_dir set to {}'.format(mnc_dir))
     print('Output will be saved to {}'.format(out_file))
     print('Operating at latitude {:.2f} km'.format(lat*1e-3))
     print('fCoriCos set to {} s^-1'.format(fCoriCos))
@@ -68,7 +71,8 @@ if __name__ == '__main__':
 
     # Each tile has a grid file. Find them and use to determine processor/tile relationships.
     print('Searching for tiles')
-    grid_files = glob('mnc*/grid*')
+    grid_glob = mnc_dir + '/grid*'
+    grid_files = glob(grid_glob)
     processor_tile = [PVG.deconstruct_processor_tile_relation(
         fn) for fn in grid_files]
 
