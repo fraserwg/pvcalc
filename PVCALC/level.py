@@ -132,7 +132,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
 
 
 def remove_boundary_points(ds, depth):
-    ''' Determines whether a tile has a solid boundary and removes those points
+    """ Determines whether a tile has a solid boundary and removes those points
     if so
 
     Arguments:
@@ -142,7 +142,7 @@ def remove_boundary_points(ds, depth):
 
     Returns:
         ds --> original dataset with any land points removed.
-    '''
+    """
     # Determine boundary points
     North, South, East, West = PVG.is_boundary(depth)
 
@@ -203,7 +203,7 @@ def remove_boundary_points(ds, depth):
 
 
 def grad_b(ds_rho, rho_ref):
-    ''' Calculates the gradient of the buoyancy field from the density field.
+    """ Calculates the gradient of the buoyancy field from the density field.
 
     Arguments:
         ds_rho --> xarray dataset containing 'RHOAnoma', the density anomaly.
@@ -217,7 +217,7 @@ def grad_b(ds_rho, rho_ref):
     Notes:
         rho_ref is NOT the density of the reference level. That is set to
             1000 kg/m^3 in the below function
-    '''
+    """
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
 
@@ -232,7 +232,7 @@ def grad_b(ds_rho, rho_ref):
 
 
 def hor_vort(ds_vel, fCoriCos):
-    ''' Calculates the horizontal vorticity.
+    """ Calculates the horizontal vorticity.
 
     Arguments:
         ds_vel --> xarray dataset of velocities as opened by open_tile. Should
@@ -244,7 +244,7 @@ def hor_vort(ds_vel, fCoriCos):
     Returns:
         ds_vort --> xarray dataset containing the horizontal components of the
             absolute vorticity.
-    '''
+    """
     ds_hv = xr.Dataset()
     ds_hv['dUdZ'] = ds_vel['UVEL'].differentiate(
         'Z', edge_order=1).interp({'Xp1': ds_vel['X']}).isel({'Z': 1})
@@ -262,7 +262,7 @@ def hor_vort(ds_vel, fCoriCos):
 
 
 def abs_vort(ds_vert, ds_grid):
-    ''' Calculates the vertical component of the absolute vorticity.
+    """ Calculates the vertical component of the absolute vorticity.
 
     Arguments:
         ds_vert --> xarray dataset containing the vertical component of the
@@ -274,7 +274,7 @@ def abs_vort(ds_vert, ds_grid):
     Returns:
         da_vort --> xarray dataarray containing the vertical component of the
             absolute vorticity.
-    '''
+    """
     ds_vert = ds_vert.isel({'Z': 1})
     da_vort = xr.DataArray()
     da_vort = ds_vert['momVort3'] + ds_grid['fCoriG']
@@ -338,7 +338,7 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
 
 
 def _drain_the_component_que(que):
-    ''' Extracts the bouyancy and vorticity xarray objects from que.
+    """ Extracts the bouyancy and vorticity xarray objects from que.
 
     Arguments:
         que --> queue.Queue object  containing jobs calculating the horizontal
@@ -354,7 +354,7 @@ def _drain_the_component_que(que):
     Notes:
         This function is very hacky and specialised. It shouldn't normally be
         accessed by the user.
-    '''
+    """
     while not que.empty():
         result = que.get()
         if isinstance(result, xr.DataArray):
