@@ -85,7 +85,7 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
     return ds_list, ds_grid
 
 
-def open_tile(file, processor, tile, lvl=1, variable=None):
+def open_tile(file, tile, processor_dict, lvl=1, variable=None):
     """ Opens all the file files for a particular tile
 
     Arguments:
@@ -96,6 +96,8 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
         variable (list) --> The variables in the dataset to load, e.g.
             ['UVEL', 'VVEL'] or None.
     """
+
+    processor = processor_dict[tile]
     # Construct the search pattern and list the associated files
     if file == 'grid':
         file_name = processor + '/' + file + '.' + tile + '.nc'
@@ -303,11 +305,11 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
         - The tile's PV is then saved as an intermediate netCDF file.
     """
     pt = (processor_dict[tile], tile)
-    ds_rho = open_tile('Rho', *pt, lvl=lvl)
+    ds_rho = open_tile('Rho', tile, processor_dict, lvl=lvl)
     rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
-    ds_vert = open_tile('Vorticity', *pt, lvl=lvl)
-    ds_grid = open_tile('grid', *pt, lvl=lvl)
-    ds_vel = open_tile('Velocity', *pt, lvl=lvl)
+    ds_vert = open_tile('Vorticity', tile, processor_dict, lvl=lvl)
+    ds_grid = open_tile('grid', tile, processor_dict, lvl=lvl)
+    ds_vel = open_tile('Velocity', tile, processor_dict, lvl=lvl)
 
     # Calculate vorticity and buoyancy gradients in parallel (thread based).
     que = Queue()
