@@ -283,7 +283,7 @@ def abs_vort(ds_vert, ds_grid):
     return da_vort
 
 
-def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
+def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     """ Function to calculate the PV of the tile and level.
     Arguments:
         proc_tile (tuple) --> tuple of processor and tile strings, e.g.
@@ -302,7 +302,7 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
         - Metadata is added to the resulting dataset. The data is then cleaned.
         - The tile's PV is then saved as an intermediate netCDF file.
     """
-    pt = proc_tile
+    pt = (processor_dict[tile], tile)
     ds_rho = open_tile('Rho', *pt, lvl=lvl)
     rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
     ds_vert = open_tile('Vorticity', *pt, lvl=lvl)
