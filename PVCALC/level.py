@@ -330,41 +330,11 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
     q = PVG.calc_q(ds_b, da_vvort, ds_hvort)
     q.attrs = ds_vel.attrs
 
-    # Now we need to get rid of incorrect overlap points.
-    # Note that this is different to the previous cropping as that
-    # was to remove land points.
-    q = remove_overlap_points(q, ds_grid['Depth'])
-
     # Save to a netcdf file
     proc, tile = pt
     outname = './' + proc + '/PV.' + tile + '.nc'
     q.to_netcdf(outname)
     return q
-
-
-def remove_overlap_points(ds, depth):
-    ''' Removes points from the tile which aren't boundary points and so
-    overlap with other tiles. Quantities along these edges are incorrect.
-
-    Arguments:
-        ds --> xarray dataset whose edge points we wish to remove
-        depth --> xarray dataarray containing the depth of the tile.
-
-    Returns:
-        ds --> xarray dataset, cropped to remove incorrect overlap points.
-    '''
-    North, South, East, West = PVG.is_boundary(depth)
-    if not North:
-        ds = ds.isel({'Y': slice(0, -1)})
-    if not South:
-        yid = ds.dims['Y']
-        ds = ds.isel({'Y': slice(1, yid)})
-    if not East:
-        ds = ds.isel({'X': slice(0, -1)})
-    if not West:
-        xid = ds.dims['X']
-        ds = ds.isel({'X': slice(1, xid)})
-    return ds
 
 
 def _drain_the_component_que(que):
