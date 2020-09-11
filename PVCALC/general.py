@@ -7,7 +7,7 @@ specialised submodules.
 import xarray as xr
 
 def construct_grid_file_name(processor, tile):
-    ''' Gives the relative path to a grid file name
+    """ Gives the relative path to a grid file name
 
     Arguments:
         processor --> the mnc folder name (string). e.g. 'mnc_0001'
@@ -16,13 +16,13 @@ def construct_grid_file_name(processor, tile):
     Returns:
         fn --> The relative path to the grid netcdf file of the tile (sting).
             There is no guarantee that such a file exists however!
-    '''
+    """
     fn = processor + '/grid.' + tile + '.nc'
     return fn
 
 
 def deconstruct_processor_tile_relation(fn):
-    ''' Gives the processor and tile names from a grid file name
+    """ Gives the processor and tile names from a grid file name
 
     Arguments:
         fn --> string of the form './mnc_XXXX/VAR.tYYYY.*nc'
@@ -30,14 +30,14 @@ def deconstruct_processor_tile_relation(fn):
     Returns:
         processor --> string of the processor folder name, e.g. 'mnc_0001'
         tile --> string of the tile name, e.g. 't0001'
-    '''
+    """
     processor = fn.split('/')[0]
     tile = fn.split('.')[1]
     return processor, tile
 
 
 def is_boundary(da_depth):
-    ''' Determines is a tile is a boundary tile
+    """ Determines is a tile is a boundary tile
 
     Arguments:
         da_depth --> xarray.dataarray object. Contains depth values for
@@ -54,7 +54,7 @@ def is_boundary(da_depth):
         lines of lattitude or longitude. If the depth is zero at points
         adjacent to the corners of the domain the edge is deemed to be a
         boundary.
-    '''
+    """
     North, South, East, West = False, False, False, False
     if not da_depth.isel({'X': 1, 'Y': -1}).data:
         North = True
@@ -68,7 +68,7 @@ def is_boundary(da_depth):
 
 
 def calc_q(ds_b, da_vvort, ds_hvort):
-    ''' Calculates the PV by combining arrays of its constituents
+    """ Calculates the PV by combining arrays of its constituents
 
     Arguments:
         ds_b --> xarray dataset containing buoyancy gradients. Must contain
@@ -85,7 +85,7 @@ def calc_q(ds_b, da_vvort, ds_hvort):
 
     Notes:
         All inputs must be given on the same grid.
-    '''
+    """
     vert = da_vvort * ds_b['dbdz']
     merid = ds_hvort['merid'] * ds_b['dbdy']
     zonal = ds_hvort['zonal'] * ds_b['dbdx']
@@ -95,7 +95,7 @@ def calc_q(ds_b, da_vvort, ds_hvort):
 
 
 def format_vertical_coordinates(ds, ds_grid):
-    ''' adds meaningful labels and depths to a dataset output by MITgcm diags
+    """ adds meaningful labels and depths to a dataset output by MITgcm diags
 
     Arguments:
         ds --> dataset that needs the verical coordinates formatting
@@ -105,7 +105,7 @@ def format_vertical_coordinates(ds, ds_grid):
     Returns:
         ds --> dataset with meainingful vertical coordinate labels and names
             applied
-    '''
+    """
     Zmd_name = 'Zmd{:06d}'.format(ds.Nr)
     Zld_name = 'Zld{:06d}'.format(ds.Nr)
     Zud_name = 'Zud{:06d}'.format(ds.Nr)
