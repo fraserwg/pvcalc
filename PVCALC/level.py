@@ -304,7 +304,6 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
         - Metadata is added to the resulting dataset. The data is then cleaned.
         - The tile's PV is then saved as an intermediate netCDF file.
     """
-    pt = (processor_dict[tile], tile)
     ds_rho = open_tile('Rho', tile, processor_dict, lvl=lvl)
     rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
     ds_vert = open_tile('Vorticity', tile, processor_dict, lvl=lvl)
@@ -333,7 +332,7 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     q.attrs = ds_vel.attrs
 
     # Save to a netcdf file
-    proc, tile = pt
+    proc = processor_dict[tile]
     outname = './' + proc + '/PV.' + tile + '.nc'
     q.to_netcdf(outname)
     return q
