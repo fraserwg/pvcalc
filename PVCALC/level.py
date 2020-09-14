@@ -6,6 +6,7 @@ Module contains functions used to calculate the PV of a model level.
 from glob import glob
 from threading import Thread
 from queue import Queue
+import numpy as np
 import xarray as xr
 import MITgcmutils.mds as mds
 from . import general as PVG
@@ -222,7 +223,16 @@ def grad_b(ds_rho, rho_ref):
     """
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
+        
+    # get the current tile metadata
+    tile_num = ds_rho.attrs['tile_number']
+    n_tiles_x = ds_rho.attrs['nSx'] * ds_rho.attrs['nPx']
+    n_tiles_y = ds_rho.attrs['nSy'] * ds_rho.attrs['nPy']
 
+    # work out the indices of the adjacent tiles:
+    t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
+
+    # Open each tile
     ds_b = xr.Dataset()
     ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
 
