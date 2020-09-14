@@ -14,7 +14,6 @@ import os
 import argparse
 from glob import glob
 from multiprocessing import Pool
-import getopt
 import sys
 import time
 from datetime import datetime
