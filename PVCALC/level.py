@@ -240,7 +240,7 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
 
     if t_west is not "t000":
         ds_west = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': -1})
-        da_b_west = - g * (ds_west['RHOAnoma'] + rho_ref.squeeze()[None, :, None]) / rho_0
+        da_b_west = - g * (ds_west['RHOAnoma'] + rho_ref) / rho_0
         da_b_zonal = xr.concat([da_b_west, da_b_zonal], dim='X')
         i_west = 1
     else:
@@ -249,7 +249,7 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     if t_east is not "t000":
         ds_east = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': 0})
         da_b_east = - g * (ds_east['RHOAnoma'] +
-                           rho_ref.squeeze()[None, :, None]) / rho_0
+                           rho_ref) / rho_0
         da_b_zonal = xr.concat([da_b_zonal, da_b_east], dim='X')
         i_east = -1
     else:
@@ -261,7 +261,7 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     if t_south is not "t000":
         ds_south = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': -1})
         da_b_south = - g * (ds_south['RHOAnoma'] +
-                            rho_ref.squeeze()[None, :, None]) / rho_0
+                            rho_ref) / rho_0
         da_b_merid = xr.concat([da_b_south, da_b_merid], dim='Y')
         j_south = 1
     else:
@@ -270,7 +270,7 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     if t_north is not "t000":
         ds_north = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': 0})
         da_b_north = - g * (ds_north['RHOAnoma'] +
-                            rho_ref.squeeze()[None, :, None]) / rho_0
+                            rho_ref) / rho_0
         da_b_merid = xr.concat([da_b_merid, da_b_north], dim='Y')
         j_north = -1
     else:
@@ -334,8 +334,8 @@ def abs_vort(ds_vert, ds_grid):
     return da_vort
 
 
-def load_rho_ref(lvl, ds_rho):
-    rho_array = mds.rdmds('RheRef').squeeze()[slice(lvl - 1, lvl + 2)]
+def open_rho_ref(lvl, ds_rho):
+    rho_array = mds.rdmds('RhoRef').squeeze()[slice(lvl - 1, lvl + 2)]
     da_rho_ref = xr.DataArray(data=rho_array, coords={'Z': ds_rho['Z']}, dims=['Z'])
     return da_rho_ref
 
@@ -360,7 +360,7 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
         - The tile's PV is then saved as an intermediate netCDF file.
     """
     ds_rho = open_tile('Rho', tile, processor_dict, lvl=lvl)
-    rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
+    rho_ref = open_rho_ref(lvl, ds_rho)
     ds_vert = open_tile('Vorticity', tile, processor_dict, lvl=lvl)
     ds_grid = open_tile('grid', tile, processor_dict, lvl=lvl)
     ds_vel = open_tile('Velocity', tile, processor_dict, lvl=lvl)
