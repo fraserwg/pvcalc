@@ -224,7 +224,7 @@ def grad_b(ds_rho, rho_ref):
     ds_b = xr.Dataset()
     ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
 
-    ds_b['dbdz'] = ds_b['b'].differentiate('Z', edge_order=2).isel({'Z': 1})
+    ds_b['dbdz'] = ds_b['b'].differentiate('Z').isel({'Z': 1})
     ds_b['dbdx'] = ds_b['b'].isel({'Z': 1}).differentiate('X', edge_order=2)
     ds_b['dbdy'] = ds_b['b'].isel({'Z': 1}).differentiate('Y', edge_order=2)
     #ds_b = ds_b.isel({'Z': slice(0, -1)})
