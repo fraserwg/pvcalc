@@ -6,7 +6,6 @@ Module contains functions used to calculate the PV of a model level.
 from glob import glob
 from threading import Thread
 from queue import Queue
-import numpy as np
 import xarray as xr
 import MITgcmutils.mds as mds
 from . import general as PVG
@@ -223,10 +222,10 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     """
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
-    
+
     ds_b = xr.Dataset()
     ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
-    
+
     da_b_merid = ds_b['b'].copy()
     da_b_zonal = ds_b['b'].copy()
 
@@ -238,16 +237,16 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     # work out the indices of the adjacent tiles:
     t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
 
-    if t_west is not "t000":
-        ds_west = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': -1})
+    if t_west != "t000":
+        ds_west = open_tile('Rho', t_west, processor_dict, lvl=lvl).isel({'X': -1})
         da_b_west = - g * (ds_west['RHOAnoma'] + rho_ref) / rho_0
         da_b_zonal = xr.concat([da_b_west, da_b_zonal], dim='X')
         i_west = 1
     else:
         i_west = 0
 
-    if t_east is not "t000":
-        ds_east = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': 0})
+    if t_east != "t000":
+        ds_east = open_tile('Rho', t_east, processor_dict, lvl=lvl).isel({'X': 0})
         da_b_east = - g * (ds_east['RHOAnoma'] +
                            rho_ref) / rho_0
         da_b_zonal = xr.concat([da_b_zonal, da_b_east], dim='X')
@@ -258,8 +257,8 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     ds_b['dbdx'] = da_b_zonal.isel({'Z': 1}).differentiate('X').isel({'X': slice(i_west, i_east)})
 
 
-    if t_south is not "t000":
-        ds_south = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': -1})
+    if t_south != "t000":
+        ds_south = open_tile('Rho', t_south, processor_dict, lvl=lvl).isel({'Y': -1})
         da_b_south = - g * (ds_south['RHOAnoma'] +
                             rho_ref) / rho_0
         da_b_merid = xr.concat([da_b_south, da_b_merid], dim='Y')
@@ -267,8 +266,8 @@ def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     else:
         j_south = 0
 
-    if t_north is not "t000":
-        ds_north = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': 0})
+    if t_north != "t000":
+        ds_north = open_tile('Rho', t_north, processor_dict, lvl=lvl).isel({'Y': 0})
         da_b_north = - g * (ds_north['RHOAnoma'] +
                             rho_ref) / rho_0
         da_b_merid = xr.concat([da_b_merid, da_b_north], dim='Y')
