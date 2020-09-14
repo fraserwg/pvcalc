@@ -300,6 +300,20 @@ def hor_vort(ds_vel, fCoriCos):
         'Z', edge_order=1).interp({'Xp1': ds_vel['X']}).isel({'Z': 1})
     ds_hv['dVdZ'] = ds_vel['VVEL'].differentiate(
         'Z', edge_order=1).interp({'Yp1': ds_vel['Y']}).isel({'Z': 1})
+    
+    # This is where we have some tile communication to do...
+
+    # Get the current tile metadata
+    tile_num = ds_vel.attrs['tile_number']
+    n_tiles_x = ds_vel.attrs['nSx'] * ds_rho.attrs['nPx']
+    n_tiles_y = ds_vel.attrs['nSy'] * ds_rho.attrs['nPy']
+
+    # work out the indices of the adjacent tiles:
+    t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
+
+    # If statements for t west, east, etc.
+
+
     ds_hv['dWdX'] = ds_vel['WVEL'].interp(
         {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X', edge_order=2)
     ds_hv['dWdY'] = ds_vel['WVEL'].interp(
