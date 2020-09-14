@@ -359,12 +359,10 @@ def _drain_the_component_que(que):
         result = que.get()
         if isinstance(result, xr.DataArray):
             da_vvort = result
+        elif 'dbdz' in result.keys():
+            ds_b = result
         else:
-            try:
-                result['dbdz']
-                ds_b = result
-            except KeyError:
-                ds_hvort = result
+            ds_hvort = result
     return da_vvort, ds_b, ds_hvort
 
 
