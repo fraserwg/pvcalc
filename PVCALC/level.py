@@ -205,7 +205,7 @@ def remove_boundary_points(ds, depth):
     return ds
 
 
-def grad_b(ds_rho, rho_ref):
+def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
     """ Calculates the gradient of the buoyancy field from the density field.
 
     Arguments:
@@ -223,7 +223,13 @@ def grad_b(ds_rho, rho_ref):
     """
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
-        
+    
+    ds_b = xr.Dataset()
+    ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
+    
+    da_b_merid = ds_b['b'].copy()
+    da_b_zonal = ds_b['b'].copy()
+
     # get the current tile metadata
     tile_num = ds_rho.attrs['tile_number']
     n_tiles_x = ds_rho.attrs['nSx'] * ds_rho.attrs['nPx']
@@ -232,14 +238,47 @@ def grad_b(ds_rho, rho_ref):
     # work out the indices of the adjacent tiles:
     t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
 
-    # Open each tile
-    ds_b = xr.Dataset()
-    ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
+    if t_west is not "t000":
+        ds_west = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': -1})
+        da_b_west = - g * (ds_west['RHOAnoma'] + rho_ref.squeeze()[None, :, None]) / rho_0
+        da_b_zonal = xr.concat([da_b_west, da_b_zonal], dim='X')
+        i_west = 1
+    else:
+        i_west = 0
+
+    if t_east is not "t000":
+        ds_east = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'X': 0})
+        da_b_east = - g * (ds_east['RHOAnoma'] +
+                           rho_ref.squeeze()[None, :, None]) / rho_0
+        da_b_zonal = xr.concat([da_b_zonal, da_b_east], dim='X')
+        i_east = -1
+    else:
+        i_east = None
+
+    ds_b['dbdx'] = da_b_zonal.isel({'Z': 1}).differentiate('X').isel({'X': slice(i_west, i_east)})
+
+
+    if t_south is not "t000":
+        ds_south = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': -1})
+        da_b_south = - g * (ds_south['RHOAnoma'] +
+                            rho_ref.squeeze()[None, :, None]) / rho_0
+        da_b_merid = xr.concat([da_b_south, da_b_merid], dim='Y')
+        j_south = 1
+    else:
+        j_south = 0
+
+    if t_north is not "t000":
+        ds_north = open_tile('Rho', tile, processor_dict, lvl=lvl).isel({'Y': 0})
+        da_b_north = - g * (ds_north['RHOAnoma'] +
+                            rho_ref.squeeze()[None, :, None]) / rho_0
+        da_b_merid = xr.concat([da_b_merid, da_b_north], dim='Y')
+        j_north = -1
+    else:
+        j_north = None
+
+    ds_b['dbdy'] = da_b_merid.isel({'Z': 1}).differentiate('Y').isel({'Y': slice(j_south, j_north)})
 
     ds_b['dbdz'] = ds_b['b'].differentiate('Z').isel({'Z': 1})
-    ds_b['dbdx'] = ds_b['b'].isel({'Z': 1}).differentiate('X', edge_order=2)
-    ds_b['dbdy'] = ds_b['b'].isel({'Z': 1}).differentiate('Y', edge_order=2)
-    #ds_b = ds_b.isel({'Z': slice(0, -1)})
     return ds_b
 
 
@@ -295,6 +334,12 @@ def abs_vort(ds_vert, ds_grid):
     return da_vort
 
 
+def load_rho_ref(lvl, ds_rho):
+    rho_array = mds.rdmds('RheRef').squeeze()[slice(lvl - 1, lvl + 2)]
+    da_rho_ref = xr.DataArray(data=rho_array, coords={'Z': ds_rho['Z']}, dims=['Z'])
+    return da_rho_ref
+
+
 def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     """ Function to calculate the PV of the tile and level.
     Arguments:
@@ -323,8 +368,8 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     # Calculate vorticity and buoyancy gradients in parallel (thread based).
     que = Queue()
 
-    b_thread = Thread(target=lambda q, ds_rho, rho_ref: q.put(
-        grad_b(ds_rho, rho_ref)), args=(que, ds_rho, rho_ref))
+    b_thread = Thread(target=lambda q, ds_rho, rho_ref, tile, processor_dict, lvl: q.put(
+        grad_b(ds_rho, rho_ref, tile, processor_dict, lvl)), args=(que, ds_rho, rho_ref, tile, processor_dict, lvl))
     vv_thread = Thread(target=lambda q, ds_vert, ds_grid: q.put(
         abs_vort(ds_vert, ds_grid)), args=(que, ds_vert, ds_grid))
     hv_thread = Thread(target=lambda q, ds_vel, fCoriCos: q.put(
@@ -336,6 +381,7 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
 
     # Extract variable from the que
     da_vvort, ds_b, ds_hvort = _drain_the_component_que(que)
+    #ds_b = grad_b(ds_rho, rho_ref, tile, processor_dict, lvl)
 
     # Calculate q
     q = PVG.calc_q(ds_b, da_vvort, ds_hvort)
@@ -381,14 +427,14 @@ def adjacent_tiles(tile_num, n_tiles_x, n_tiles_y):
     bi = tile_num % n_tiles_x
     bj = tile_num // n_tiles_x + 1
 
-    tile_west = b_coords_to_tile_num(bi + 1, bj, n_tiles_x, n_tiles_y)
-    tile_east = b_coords_to_tile_num(bi - 1, bj, n_tiles_x, n_tiles_y)
-    tile_south = b_coords_to_tile_num(bi, bj - 1, n_tiles_x, n_tiles_y)
-    tile_north = b_coords_to_tile_num(bi, bj + 1, n_tiles_x, n_tiles_y)
+    tile_west = b_coords_to_tile(bi + 1, bj, n_tiles_x, n_tiles_y)
+    tile_east = b_coords_to_tile(bi - 1, bj, n_tiles_x, n_tiles_y)
+    tile_south = b_coords_to_tile(bi, bj - 1, n_tiles_x, n_tiles_y)
+    tile_north = b_coords_to_tile(bi, bj + 1, n_tiles_x, n_tiles_y)
     return tile_west, tile_east, tile_south, tile_north
 
 
-def b_coords_to_tile_num(bi, bj, n_tiles_x, n_tiles_y):
+def b_coords_to_tile(bi, bj, n_tiles_x, n_tiles_y):
     """ Converts from the tile index to the tile number
 
     Arguments:
@@ -398,16 +444,18 @@ def b_coords_to_tile_num(bi, bj, n_tiles_x, n_tiles_y):
         n_tiles_y (int) --> number of meridional tiles
 
     Returns:
-        tile_num (int or np.NaN) --> "flat" tile index
+        tile ("tXXX") --> "flat" tile index
 
     Notes:
-        - Returns np.NaN if the tile is at the edge of the domain. Could be
+        - Returns t000 if the tile is at the edge of the domain. Could be
             modified to wrap as the domain is strictly speaking periodic.
     """
     if bi < 1 or bi > n_tiles_x:
-        tile_num = np.NaN
+        tile_num = 0
     elif bj < 1 or bj > n_tiles_y:
-        tile_num = np.NaN
+        tile_num = 0
     else:
         tile_num = (bj - 1) * n_tiles_x + bi
-    return tile_num
+
+    tile = "t{:03d}".format(tile_num)
+    return tile
