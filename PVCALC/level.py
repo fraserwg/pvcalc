@@ -366,3 +366,39 @@ def _drain_the_component_que(que):
             except KeyError:
                 ds_hvort = result
     return da_vvort, ds_b, ds_hvort
+
+
+def adjacent_tiles(tile_num, n_tiles_x, n_tiles_y):
+    bi = tile_num % n_tiles_x
+    bj = tile_num // n_tiles_x + 1
+
+    tile_west = b_coords_to_tile_num(bi + 1, bj, n_tiles_x, n_tiles_y)
+    tile_east = b_coords_to_tile_num(bi - 1, bj, n_tiles_x, n_tiles_y)
+    tile_south = b_coords_to_tile_num(bi, bj - 1, n_tiles_x, n_tiles_y)
+    tile_north = b_coords_to_tile_num(bi, bj + 1, n_tiles_x, n_tiles_y)
+    return tile_west, tile_east, tile_south, tile_north
+
+
+def b_coords_to_tile_num(bi, bj, n_tiles_x, n_tiles_y):
+    """ Converts from the tile index to the tile number
+
+    Arguments:
+        bi (int) --> zonal (X) tile index
+        bj (int) --> meridional (Y) tile index
+        n_tiles_x (int) --> number of zonal tiles
+        n_tiles_y (int) --> number of meridional tiles
+
+    Returns:
+        tile_num (int or np.NaN) --> "flat" tile index
+
+    Notes:
+        - Returns np.NaN if the tile is at the edge of the domain. Could be
+            modified to wrap as the domain is strictly speaking periodic.
+    """
+    if bi < 1 or bi > n_tiles_x:
+        tile_num = np.NaN
+    elif bj < 1 or bj > n_tiles_y:
+        tile_num = np.NaN
+    else:
+        tile_num = (bj - 1) * n_tiles_x + bi
+    return tile_num
