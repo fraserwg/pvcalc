@@ -281,7 +281,7 @@ def grad_b(ds_rho, rho_ref, processor_dict, lvl):
     return ds_b
 
 
-def hor_vort(ds_vel, fCoriCos):
+def hor_vort(ds_vel, fCoriCos, processor_dict, lvl):
     """ Calculates the horizontal vorticity.
 
     Arguments:
@@ -305,17 +305,37 @@ def hor_vort(ds_vel, fCoriCos):
 
     # Get the current tile metadata
     tile_num = ds_vel.attrs['tile_number']
-    n_tiles_x = ds_vel.attrs['nSx'] * ds_rho.attrs['nPx']
-    n_tiles_y = ds_vel.attrs['nSy'] * ds_rho.attrs['nPy']
+    n_tiles_x = ds_vel.attrs['nSx'] * ds_vel.attrs['nPx']
+    n_tiles_y = ds_vel.attrs['nSy'] * ds_vel.attrs['nPy']
 
     # work out the indices of the adjacent tiles:
     t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
 
+    list_da_zonal = list()
     # If statements for t west, east, etc.
+    if t_west != "t000":
+        da_w_west = open_tile('Velocity', t_west, processor_dict,
+                            lvl=lvl, variable=['WVEL']).isel({'X': -1})
+        list_da_zonal += [da_w_west['WVEL']]
+        i_west = 1
+    else:
+        i_west = 0
 
+    list_da_zonal += [ds_vel['WVEL']]
+    
+    if t_east != "t000":
+        da_w_east = open_tile('Velocity', t_east, processor_dict,
+                            lvl=lvl, variable=['WVEL']).isel({'X': 0})
+        list_da_zonal += [da_w_east['WVEL']]
+        i_east = -1
+    else:
+        i_east = None
+    
+    da_w_zonal = xr.concat(list_da_zonal, dim='X')
+    
+    ds_hv['dWdX'] = da_w_zonal.interp(
+        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X').isel({'X': slice(i_west, i_east)})
 
-    ds_hv['dWdX'] = ds_vel['WVEL'].interp(
-        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X', edge_order=2)
     ds_hv['dWdY'] = ds_vel['WVEL'].interp(
         {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('Y', edge_order=2)
 
@@ -385,8 +405,8 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
         grad_b(ds_rho, rho_ref, processor_dict, lvl)), args=(que, ds_rho, rho_ref, processor_dict, lvl))
     vv_thread = Thread(target=lambda q, ds_vert, ds_grid: q.put(
         abs_vort(ds_vert, ds_grid)), args=(que, ds_vert, ds_grid))
-    hv_thread = Thread(target=lambda q, ds_vel, fCoriCos: q.put(
-        hor_vort(ds_vel, fCoriCos)), args=(que, ds_vel, fCoriCos))
+    hv_thread = Thread(target=lambda q, ds_vel, fCoriCos, processor_dict, lvl: q.put(
+        hor_vort(ds_vel, fCoriCos, processor_dict, lvl)), args=(que, ds_vel, fCoriCos, processor_dict, lvl))
 
     thread_list = [b_thread, vv_thread, hv_thread]
     [thread.start() for thread in thread_list]
@@ -437,11 +457,11 @@ def _drain_the_component_que(que):
 
 
 def adjacent_tiles(tile_num, n_tiles_x, n_tiles_y):
-    bi = tile_num % n_tiles_x
-    bj = tile_num // n_tiles_x + 1
+    bi = (tile_num - 1) % n_tiles_x + 1
+    bj = (tile_num - 1) // n_tiles_x + 1
 
-    tile_west = b_coords_to_tile(bi + 1, bj, n_tiles_x, n_tiles_y)
-    tile_east = b_coords_to_tile(bi - 1, bj, n_tiles_x, n_tiles_y)
+    tile_west = b_coords_to_tile(bi - 1, bj, n_tiles_x, n_tiles_y)
+    tile_east = b_coords_to_tile(bi + 1, bj, n_tiles_x, n_tiles_y)
     tile_south = b_coords_to_tile(bi, bj - 1, n_tiles_x, n_tiles_y)
     tile_north = b_coords_to_tile(bi, bj + 1, n_tiles_x, n_tiles_y)
     return tile_west, tile_east, tile_south, tile_north
