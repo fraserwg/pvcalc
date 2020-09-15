@@ -6,3 +6,4 @@ PVCALC.egg-info
 *.nc
 RhoRef.*
 *.out
+test/test_data/.nfs00000000004800f200000009

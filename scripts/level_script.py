@@ -14,7 +14,6 @@ import os
 import argparse
 from glob import glob
 from multiprocessing import Pool
-import getopt
 import sys
 import time
 from datetime import datetime
@@ -72,26 +71,28 @@ if __name__ == '__main__':
     grid_files = glob(grid_glob)
     processor_tile = [PVG.deconstruct_processor_tile_relation(
         fn) for fn in grid_files]
-    ptlvl = [[elem, lvl, fCoriCos] for elem in processor_tile]
+    processor_dict = {tile: processor for processor, tile in processor_tile}
+    calc_pv_args = [(tile, processor_dict, lvl, fCoriCos)
+                    for _, tile in processor_tile]
 
     tsearch = time.time() - t0
-    print('Found {} tiles \n'.format(len(ptlvl)))
+    print('Found {} tiles \n'.format(len(calc_pv_args)))
 
     # Make sure some tiles are found
-    if not ptlvl:
+    if not calc_pv_args:
         print('No tiles found, exiting level_script.py')
         print()
         print(78 * '#')
         sys.exit()
-    elif len(ptlvl) < nprocs:
-        nprocs = len(ptlvl)
+    elif len(calc_pv_args) < nprocs:
+        nprocs = len(calc_pv_args)
         print('Number of processors reduced to match number of tiles \n')
         print('nprocs = {}'.format(nprocs))
 
     # Calculate the PV in parallel (process based)
     print('Initialising process pool')
     with Pool(nprocs) as p:
-        pv_list = p.starmap(PVL.calc_pv_of_tile, ptlvl)
+        pv_list = p.starmap(PVL.calc_pv_of_tile, calc_pv_args)
     tpool = time.time() - tsearch - t0
 
     # Merge the processed output

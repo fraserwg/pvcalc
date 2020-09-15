@@ -3,7 +3,7 @@ import setuptools
 
 setup(
     name='PVCALC',
-    version='0.0.1',
+    version='0.2.0',
     author='Fraser William Goldsworth',
     author_email='fraser.goldsworth@physics.ox.ac.uk',
     packages=setuptools.find_packages(),

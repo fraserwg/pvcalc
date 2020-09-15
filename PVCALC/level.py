@@ -3,6 +3,7 @@
 
 Module contains functions used to calculate the PV of a model level.
 """
+import os
 from glob import glob
 from threading import Thread
 from queue import Queue
@@ -85,7 +86,7 @@ def _select_dataset_levels(ds_list, ds_grid, lvl):
     return ds_list, ds_grid
 
 
-def open_tile(file, processor, tile, lvl=1, variable=None):
+def open_tile(file, tile, processor_dict, lvl=1, variable=None):
     """ Opens all the file files for a particular tile
 
     Arguments:
@@ -96,6 +97,8 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
         variable (list) --> The variables in the dataset to load, e.g.
             ['UVEL', 'VVEL'] or None.
     """
+
+    processor = processor_dict[tile]
     # Construct the search pattern and list the associated files
     if file == 'grid':
         file_name = processor + '/' + file + '.' + tile + '.nc'
@@ -132,7 +135,7 @@ def open_tile(file, processor, tile, lvl=1, variable=None):
 
 
 def remove_boundary_points(ds, depth):
-    ''' Determines whether a tile has a solid boundary and removes those points
+    """ Determines whether a tile has a solid boundary and removes those points
     if so
 
     Arguments:
@@ -142,7 +145,7 @@ def remove_boundary_points(ds, depth):
 
     Returns:
         ds --> original dataset with any land points removed.
-    '''
+    """
     # Determine boundary points
     North, South, East, West = PVG.is_boundary(depth)
 
@@ -202,8 +205,8 @@ def remove_boundary_points(ds, depth):
     return ds
 
 
-def grad_b(ds_rho, rho_ref):
-    ''' Calculates the gradient of the buoyancy field from the density field.
+def grad_b(ds_rho, rho_ref, processor_dict, lvl):
+    """ Calculates the gradient of the buoyancy field from the density field.
 
     Arguments:
         ds_rho --> xarray dataset containing 'RHOAnoma', the density anomaly.
@@ -217,22 +220,70 @@ def grad_b(ds_rho, rho_ref):
     Notes:
         rho_ref is NOT the density of the reference level. That is set to
             1000 kg/m^3 in the below function
-    '''
+    """
     g = 9.81  # m / s^2
     rho_0 = 1000  # kg / m^3
 
     ds_b = xr.Dataset()
     ds_b['b'] = - g * (ds_rho['RHOAnoma'] + rho_ref) / rho_0
 
-    ds_b['dbdz'] = ds_b['b'].differentiate('Z', edge_order=2).isel({'Z': 1})
-    ds_b['dbdx'] = ds_b['b'].isel({'Z': 1}).differentiate('X', edge_order=2)
-    ds_b['dbdy'] = ds_b['b'].isel({'Z': 1}).differentiate('Y', edge_order=2)
-    #ds_b = ds_b.isel({'Z': slice(0, -1)})
+    da_b_merid = ds_b['b'].copy()
+    da_b_zonal = ds_b['b'].copy()
+
+    # get the current tile metadata
+    tile_num = ds_rho.attrs['tile_number']
+    n_tiles_x = ds_rho.attrs['nSx'] * ds_rho.attrs['nPx']
+    n_tiles_y = ds_rho.attrs['nSy'] * ds_rho.attrs['nPy']
+
+    # work out the indices of the adjacent tiles:
+    t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
+
+    if t_west != "t000":
+        ds_west = open_tile('Rho', t_west, processor_dict, lvl=lvl).isel({'X': -1})
+        da_b_west = - g * (ds_west['RHOAnoma'] + rho_ref) / rho_0
+        da_b_zonal = xr.concat([da_b_west, da_b_zonal], dim='X')
+        i_west = 1
+    else:
+        i_west = 0
+
+    if t_east != "t000":
+        ds_east = open_tile('Rho', t_east, processor_dict, lvl=lvl).isel({'X': 0})
+        da_b_east = - g * (ds_east['RHOAnoma'] +
+                           rho_ref) / rho_0
+        da_b_zonal = xr.concat([da_b_zonal, da_b_east], dim='X')
+        i_east = -1
+    else:
+        i_east = None
+
+    ds_b['dbdx'] = da_b_zonal.isel({'Z': 1}).differentiate('X').isel({'X': slice(i_west, i_east)})
+
+
+    if t_south != "t000":
+        ds_south = open_tile('Rho', t_south, processor_dict, lvl=lvl).isel({'Y': -1})
+        da_b_south = - g * (ds_south['RHOAnoma'] +
+                            rho_ref) / rho_0
+        da_b_merid = xr.concat([da_b_south, da_b_merid], dim='Y')
+        j_south = 1
+    else:
+        j_south = 0
+
+    if t_north != "t000":
+        ds_north = open_tile('Rho', t_north, processor_dict, lvl=lvl).isel({'Y': 0})
+        da_b_north = - g * (ds_north['RHOAnoma'] +
+                            rho_ref) / rho_0
+        da_b_merid = xr.concat([da_b_merid, da_b_north], dim='Y')
+        j_north = -1
+    else:
+        j_north = None
+
+    ds_b['dbdy'] = da_b_merid.isel({'Z': 1}).differentiate('Y').isel({'Y': slice(j_south, j_north)})
+
+    ds_b['dbdz'] = ds_b['b'].differentiate('Z').isel({'Z': 1})
     return ds_b
 
 
-def hor_vort(ds_vel, fCoriCos):
-    ''' Calculates the horizontal vorticity.
+def hor_vort(ds_vel, fCoriCos, processor_dict, lvl):
+    """ Calculates the horizontal vorticity.
 
     Arguments:
         ds_vel --> xarray dataset of velocities as opened by open_tile. Should
@@ -244,16 +295,72 @@ def hor_vort(ds_vel, fCoriCos):
     Returns:
         ds_vort --> xarray dataset containing the horizontal components of the
             absolute vorticity.
-    '''
+    """
     ds_hv = xr.Dataset()
     ds_hv['dUdZ'] = ds_vel['UVEL'].differentiate(
         'Z', edge_order=1).interp({'Xp1': ds_vel['X']}).isel({'Z': 1})
     ds_hv['dVdZ'] = ds_vel['VVEL'].differentiate(
         'Z', edge_order=1).interp({'Yp1': ds_vel['Y']}).isel({'Z': 1})
-    ds_hv['dWdX'] = ds_vel['WVEL'].interp(
-        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X', edge_order=2)
-    ds_hv['dWdY'] = ds_vel['WVEL'].interp(
-        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('Y', edge_order=2)
+    
+    # This is where we have some tile communication to do...
+
+    # Get the current tile metadata
+    tile_num = ds_vel.attrs['tile_number']
+    n_tiles_x = ds_vel.attrs['nSx'] * ds_vel.attrs['nPx']
+    n_tiles_y = ds_vel.attrs['nSy'] * ds_vel.attrs['nPy']
+
+    # work out the indices of the adjacent tiles:
+    t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
+
+    # Calculate the zonal w derivative
+    list_da_zonal = list()
+    if t_west != "t000":
+        da_w_west = open_tile('Velocity', t_west, processor_dict,
+                            lvl=lvl, variable=['WVEL']).isel({'X': -1})
+        list_da_zonal += [da_w_west['WVEL']]
+        i_west = 1
+    else:
+        i_west = 0
+
+    list_da_zonal += [ds_vel['WVEL']]
+    
+    if t_east != "t000":
+        da_w_east = open_tile('Velocity', t_east, processor_dict,
+                            lvl=lvl, variable=['WVEL']).isel({'X': 0})
+        list_da_zonal += [da_w_east['WVEL']]
+        i_east = -1
+    else:
+        i_east = None
+    
+    da_w_zonal = xr.concat(list_da_zonal, dim='X')
+    
+    ds_hv['dWdX'] = da_w_zonal.interp(
+        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X').isel({'X': slice(i_west, i_east)})
+
+    # Calculate the meridional w derivative
+    list_da_merid = list()
+    if t_south != "t000":
+        da_w_south = open_tile('Velocity', t_south, processor_dict,
+                             lvl=lvl, variable=['WVEL']).isel({'Y': -1})
+        list_da_merid += [da_w_south['WVEL']]
+        j_south = 1
+    else:
+        j_south = 0
+
+    list_da_merid += [ds_vel['WVEL']]
+
+    if t_north != "t000":
+        da_w_north = open_tile('Velocity', t_north, processor_dict,
+                             lvl=lvl, variable=['WVEL']).isel({'Y': -1})
+        list_da_merid += [da_w_north['WVEL']]
+        j_north = -1
+    else:
+        j_north = None
+
+    da_w_merid = xr.concat(list_da_merid, dim='Y')
+
+    ds_hv['dWdY'] = da_w_merid.interp(
+        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('Y').isel({'Y': slice(j_south, j_north)})
 
     ds_vort = xr.Dataset()
     ds_vort['merid'] = ds_hv['dUdZ'] - ds_hv['dWdX'] + fCoriCos
@@ -262,7 +369,7 @@ def hor_vort(ds_vel, fCoriCos):
 
 
 def abs_vort(ds_vert, ds_grid):
-    ''' Calculates the vertical component of the absolute vorticity.
+    """ Calculates the vertical component of the absolute vorticity.
 
     Arguments:
         ds_vert --> xarray dataset containing the vertical component of the
@@ -274,7 +381,7 @@ def abs_vort(ds_vert, ds_grid):
     Returns:
         da_vort --> xarray dataarray containing the vertical component of the
             absolute vorticity.
-    '''
+    """
     ds_vert = ds_vert.isel({'Z': 1})
     da_vort = xr.DataArray()
     da_vort = ds_vert['momVort3'] + ds_grid['fCoriG']
@@ -283,7 +390,13 @@ def abs_vort(ds_vert, ds_grid):
     return da_vort
 
 
-def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
+def open_rho_ref(lvl, ds_rho):
+    rho_array = mds.rdmds('RhoRef').squeeze()[slice(lvl - 1, lvl + 2)]
+    da_rho_ref = xr.DataArray(data=rho_array, coords={'Z': ds_rho['Z']}, dims=['Z'])
+    return da_rho_ref
+
+
+def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     """ Function to calculate the PV of the tile and level.
     Arguments:
         proc_tile (tuple) --> tuple of processor and tile strings, e.g.
@@ -302,22 +415,26 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
         - Metadata is added to the resulting dataset. The data is then cleaned.
         - The tile's PV is then saved as an intermediate netCDF file.
     """
-    pt = proc_tile
-    ds_rho = open_tile('Rho', *pt, lvl=lvl)
-    rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
-    ds_vert = open_tile('Vorticity', *pt, lvl=lvl)
-    ds_grid = open_tile('grid', *pt, lvl=lvl)
-    ds_vel = open_tile('Velocity', *pt, lvl=lvl)
+
+    pid = os.getpid()
+    with open("PVCALC{}.out".format(pid), "a") as process_output:
+        print("Operating on tile", tile, file=process_output)
+
+    ds_rho = open_tile('Rho', tile, processor_dict, lvl=lvl)
+    rho_ref = open_rho_ref(lvl, ds_rho)
+    ds_vert = open_tile('Vorticity', tile, processor_dict, lvl=lvl)
+    ds_grid = open_tile('grid', tile, processor_dict, lvl=lvl)
+    ds_vel = open_tile('Velocity', tile, processor_dict, lvl=lvl)
 
     # Calculate vorticity and buoyancy gradients in parallel (thread based).
     que = Queue()
 
-    b_thread = Thread(target=lambda q, ds_rho, rho_ref: q.put(
-        grad_b(ds_rho, rho_ref)), args=(que, ds_rho, rho_ref))
+    b_thread = Thread(target=lambda q, ds_rho, rho_ref, processor_dict, lvl: q.put(
+        grad_b(ds_rho, rho_ref, processor_dict, lvl)), args=(que, ds_rho, rho_ref, processor_dict, lvl))
     vv_thread = Thread(target=lambda q, ds_vert, ds_grid: q.put(
         abs_vort(ds_vert, ds_grid)), args=(que, ds_vert, ds_grid))
-    hv_thread = Thread(target=lambda q, ds_vel, fCoriCos: q.put(
-        hor_vort(ds_vel, fCoriCos)), args=(que, ds_vel, fCoriCos))
+    hv_thread = Thread(target=lambda q, ds_vel, fCoriCos, processor_dict, lvl: q.put(
+        hor_vort(ds_vel, fCoriCos, processor_dict, lvl)), args=(que, ds_vel, fCoriCos, processor_dict, lvl))
 
     thread_list = [b_thread, vv_thread, hv_thread]
     [thread.start() for thread in thread_list]
@@ -325,50 +442,21 @@ def calc_pv_of_tile(proc_tile, lvl, fCoriCos):
 
     # Extract variable from the que
     da_vvort, ds_b, ds_hvort = _drain_the_component_que(que)
+    #ds_b = grad_b(ds_rho, rho_ref, tile, processor_dict, lvl)
 
     # Calculate q
     q = PVG.calc_q(ds_b, da_vvort, ds_hvort)
     q.attrs = ds_vel.attrs
 
-    # Now we need to get rid of incorrect overlap points.
-    # Note that this is different to the previous cropping as that
-    # was to remove land points.
-    q = remove_overlap_points(q, ds_grid['Depth'])
-
     # Save to a netcdf file
-    proc, tile = pt
+    proc = processor_dict[tile]
     outname = './' + proc + '/PV.' + tile + '.nc'
     q.to_netcdf(outname)
     return q
 
 
-def remove_overlap_points(ds, depth):
-    ''' Removes points from the tile which aren't boundary points and so
-    overlap with other tiles. Quantities along these edges are incorrect.
-
-    Arguments:
-        ds --> xarray dataset whose edge points we wish to remove
-        depth --> xarray dataarray containing the depth of the tile.
-
-    Returns:
-        ds --> xarray dataset, cropped to remove incorrect overlap points.
-    '''
-    North, South, East, West = PVG.is_boundary(depth)
-    if not North:
-        ds = ds.isel({'Y': slice(0, -1)})
-    if not South:
-        yid = ds.dims['Y']
-        ds = ds.isel({'Y': slice(1, yid)})
-    if not East:
-        ds = ds.isel({'X': slice(0, -1)})
-    if not West:
-        xid = ds.dims['X']
-        ds = ds.isel({'X': slice(1, xid)})
-    return ds
-
-
 def _drain_the_component_que(que):
-    ''' Extracts the bouyancy and vorticity xarray objects from que.
+    """ Extracts the bouyancy and vorticity xarray objects from que.
 
     Arguments:
         que --> queue.Queue object  containing jobs calculating the horizontal
@@ -384,15 +472,51 @@ def _drain_the_component_que(que):
     Notes:
         This function is very hacky and specialised. It shouldn't normally be
         accessed by the user.
-    '''
+    """
     while not que.empty():
         result = que.get()
         if isinstance(result, xr.DataArray):
             da_vvort = result
+        elif 'dbdz' in result.keys():
+            ds_b = result
         else:
-            try:
-                result['dbdz']
-                ds_b = result
-            except KeyError:
-                ds_hvort = result
+            ds_hvort = result
     return da_vvort, ds_b, ds_hvort
+
+
+def adjacent_tiles(tile_num, n_tiles_x, n_tiles_y):
+    bi = (tile_num - 1) % n_tiles_x + 1
+    bj = (tile_num - 1) // n_tiles_x + 1
+
+    tile_west = b_coords_to_tile(bi - 1, bj, n_tiles_x, n_tiles_y)
+    tile_east = b_coords_to_tile(bi + 1, bj, n_tiles_x, n_tiles_y)
+    tile_south = b_coords_to_tile(bi, bj - 1, n_tiles_x, n_tiles_y)
+    tile_north = b_coords_to_tile(bi, bj + 1, n_tiles_x, n_tiles_y)
+    return tile_west, tile_east, tile_south, tile_north
+
+
+def b_coords_to_tile(bi, bj, n_tiles_x, n_tiles_y):
+    """ Converts from the tile index to the tile number
+
+    Arguments:
+        bi (int) --> zonal (X) tile index
+        bj (int) --> meridional (Y) tile index
+        n_tiles_x (int) --> number of zonal tiles
+        n_tiles_y (int) --> number of meridional tiles
+
+    Returns:
+        tile ("tXXX") --> "flat" tile index
+
+    Notes:
+        - Returns t000 if the tile is at the edge of the domain. Could be
+            modified to wrap as the domain is strictly speaking periodic.
+    """
+    if bi < 1 or bi > n_tiles_x:
+        tile_num = 0
+    elif bj < 1 or bj > n_tiles_y:
+        tile_num = 0
+    else:
+        tile_num = (bj - 1) * n_tiles_x + bi
+
+    tile = "t{:03d}".format(tile_num)
+    return tile
