@@ -311,8 +311,8 @@ def hor_vort(ds_vel, fCoriCos, processor_dict, lvl):
     # work out the indices of the adjacent tiles:
     t_west, t_east, t_south, t_north = adjacent_tiles(tile_num, n_tiles_x, n_tiles_y)
 
+    # Calculate the zonal w derivative
     list_da_zonal = list()
-    # If statements for t west, east, etc.
     if t_west != "t000":
         da_w_west = open_tile('Velocity', t_west, processor_dict,
                             lvl=lvl, variable=['WVEL']).isel({'X': -1})
@@ -336,8 +336,30 @@ def hor_vort(ds_vel, fCoriCos, processor_dict, lvl):
     ds_hv['dWdX'] = da_w_zonal.interp(
         {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('X').isel({'X': slice(i_west, i_east)})
 
-    ds_hv['dWdY'] = ds_vel['WVEL'].interp(
-        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('Y', edge_order=2)
+    # Calculate the meridional w derivative
+    list_da_merid = list()
+    if t_south != "t000":
+        da_w_south = open_tile('Velocity', t_south, processor_dict,
+                             lvl=lvl, variable=['WVEL']).isel({'Y': -1})
+        list_da_merid += [da_w_south['WVEL']]
+        j_south = 1
+    else:
+        j_south = 0
+
+    list_da_merid += [ds_vel['WVEL']]
+
+    if t_north != "t000":
+        da_w_north = open_tile('Velocity', t_north, processor_dict,
+                             lvl=lvl, variable=['WVEL']).isel({'Y': -1})
+        list_da_merid += [da_w_north['WVEL']]
+        j_north = -1
+    else:
+        j_north = None
+
+    da_w_merid = xr.concat(list_da_merid, dim='Y')
+
+    ds_hv['dWdY'] = da_w_merid.interp(
+        {'Zl': ds_vel['Z'].isel({'Z': 1})}).differentiate('Y').isel({'Y': slice(j_south, j_north)})
 
     ds_vort = xr.Dataset()
     ds_vort['merid'] = ds_hv['dUdZ'] - ds_hv['dWdX'] + fCoriCos
