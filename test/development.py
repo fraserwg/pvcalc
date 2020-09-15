@@ -49,8 +49,8 @@ ds_grid = PVL.open_tile('grid', *pt, lvl=lvl)
 # %%
 ds_rho = PVL.open_tile('Rho', 't001', processor_dict, lvl)
 ds_rho
-rho_ref = mds.rdmds('RhoRef')[slice(lvl - 1, lvl + 2)]
+rho_ref = PVL.open_rho_ref(lvl, ds_rho)
 # %%
 
-PVL.grad_b(ds_rho, rho_ref, 't001', processor_dict, lvl)
+PVL.grad_b(ds_rho, rho_ref, processor_dict, lvl)
 # %%
