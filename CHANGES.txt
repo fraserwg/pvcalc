@@ -1,0 +1,4 @@
+v0.2.0
+- Fixes to level modules and scripts which remove tile edges from calculations
+- Some changes to test scripts
+- Bug fixes
