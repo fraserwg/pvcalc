@@ -3,6 +3,7 @@
 
 Module contains functions used to calculate the PV of a model level.
 """
+import os
 from glob import glob
 from threading import Thread
 from queue import Queue
@@ -414,6 +415,11 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
         - Metadata is added to the resulting dataset. The data is then cleaned.
         - The tile's PV is then saved as an intermediate netCDF file.
     """
+
+    pid = os.getpid()
+    with open("PVCALC{}.out".format(pid), "a") as process_output:
+        print("Operating on tile", tile, file=process_output)
+
     ds_rho = open_tile('Rho', tile, processor_dict, lvl=lvl)
     rho_ref = open_rho_ref(lvl, ds_rho)
     ds_vert = open_tile('Vorticity', tile, processor_dict, lvl=lvl)
