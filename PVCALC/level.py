@@ -204,7 +204,7 @@ def remove_boundary_points(ds, depth):
     return ds
 
 
-def grad_b(ds_rho, rho_ref, tile, processor_dict, lvl):
+def grad_b(ds_rho, rho_ref, processor_dict, lvl):
     """ Calculates the gradient of the buoyancy field from the density field.
 
     Arguments:
@@ -381,8 +381,8 @@ def calc_pv_of_tile(tile, processor_dict, lvl, fCoriCos):
     # Calculate vorticity and buoyancy gradients in parallel (thread based).
     que = Queue()
 
-    b_thread = Thread(target=lambda q, ds_rho, rho_ref, tile, processor_dict, lvl: q.put(
-        grad_b(ds_rho, rho_ref, tile, processor_dict, lvl)), args=(que, ds_rho, rho_ref, tile, processor_dict, lvl))
+    b_thread = Thread(target=lambda q, ds_rho, rho_ref, processor_dict, lvl: q.put(
+        grad_b(ds_rho, rho_ref, processor_dict, lvl)), args=(que, ds_rho, rho_ref, processor_dict, lvl))
     vv_thread = Thread(target=lambda q, ds_vert, ds_grid: q.put(
         abs_vort(ds_vert, ds_grid)), args=(que, ds_vert, ds_grid))
     hv_thread = Thread(target=lambda q, ds_vel, fCoriCos: q.put(
