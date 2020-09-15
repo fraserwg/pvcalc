@@ -9,4 +9,4 @@
 
 export DIR=./test_data/
 
-level_script.py --dir $DIR -n 16 --lvl 2 --out $DIR/gluPVlvl.nc --fCoriCos 0.00015 > glueLvl.out
+level_script.py --dir $DIR -n 4 --lvl 2 --out $DIR/gluPVlvl.nc --fCoriCos 0.00015 > glueLvl.out
