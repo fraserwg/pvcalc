@@ -106,7 +106,12 @@ if __name__ == '__main__':
 
     # Save the merged output
     print('Saving merged output \n')
-    ds_combined.to_netcdf(out_file)
+
+    coord_encoding = {elem: {'zlib': True} for elem in ds_combined.coords}
+    var_encoding = {elem: {'zlib': True} for elem in ds_combined.data_vars}
+    encoding = {**coord_encoding, **var_encoding}
+
+    ds_combined.to_netcdf(out_file, engine='netcdf4', encoding=encoding)
     tsave = time.time() - tcombined - tpool - tsearch - t0
 
     print('Processing completed \n')
