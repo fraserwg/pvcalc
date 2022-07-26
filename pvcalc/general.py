@@ -29,14 +29,17 @@ def calculate_buoyancy(da_rho, rho_0=1000, g=9.81):
     return da_b
 
 
-def calculate_grad_buoyancy(da_b, ds_grid, grid):
+def calculate_grad_buoyancy(da_b, ds_grid, grid, diff_y=True):
     dbdz = grid.diff(da_b, axis='Z', boundary='extend', to='right') / ds_grid['drL']
     dbdx = grid.diff(da_b, axis='X', boundary='extend') / ds_grid['dxC']
+
     dbdy = grid.diff(da_b, axis='Y', boundary='extend') / ds_grid['dyC']
+    if not diff_y:
+        dbdy = xr.zeros_like(dbdy)
     return dbdx, dbdy, dbdz
 
 
-def calculate_curl_velocity(da_u, da_v, da_w, ds_grid, grid, no_slip_bottom, no_slip_sides):
+def calculate_curl_velocity(da_u, da_v, da_w, ds_grid, grid, no_slip_bottom, no_slip_sides, diff_y=True):
     
     if no_slip_bottom:
         bottom_boundary_kwargs = {'boundary': 'fill',
@@ -50,7 +53,10 @@ def calculate_curl_velocity(da_u, da_v, da_w, ds_grid, grid, no_slip_bottom, no_
     else:
         lateral_boundary_kwargs = {'boundary': 'extend'}
         
-    dwdy = grid.diff(da_w, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyC']
+    if diff_y:
+        dwdy = grid.diff(da_w, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyC']
+    else:
+        dwdy = 0
     dvdz = grid.diff(da_v, axis='Z', **bottom_boundary_kwargs, to='right') / ds_grid['drL']
     zeta_x = dwdy - dvdz
 
@@ -59,13 +65,16 @@ def calculate_curl_velocity(da_u, da_v, da_w, ds_grid, grid, no_slip_bottom, no_
     zeta_y = dudz - dwdx
 
     dvdx = grid.diff(da_v, axis='X', **lateral_boundary_kwargs) / ds_grid['dxV']
-    dudy = grid.diff(da_u, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyU']
+    if diff_y:
+        dudy = grid.diff(da_u, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyU']
+    else:
+        dudy = 0
     zeta_z = dvdx - dudy
 
     return zeta_x, zeta_y, zeta_z
 
 
-def calculate_C_potential_vorticity(zeta_x, zeta_y, zeta_z, b, ds_grid, grid, beta, f0, fprime=0):
+def calculate_C_potential_vorticity(zeta_x, zeta_y, zeta_z, b, ds_grid, grid, beta, f0, fprime=0, diff_y=True):
     """ clauclates the potential vorticity using the C-grid formula
     
     Notes
@@ -73,21 +82,25 @@ def calculate_C_potential_vorticity(zeta_x, zeta_y, zeta_z, b, ds_grid, grid, be
     * See Morel et al. (Ocean Modelling, 2019) for full details of
         the algorithm employed here.
     """
-    
+    if diff_y:
+        zi_y = zeta_y + fprime
+        b_y = grid.interp(b, to={'Z': 'right', 'X': 'left'}, axis=['X', 'Z'], boundary='extend')
+        zi_b_y = zi_y * b_y
+        Q_y = grid.diff(zi_b_y, axis='Y', boundary='extend') / ds_grid['dyU']
+
+    else:
+        Q_y = 0
+        
     zi_x = zeta_x
-    zi_y = zeta_y + fprime
     zi_z = zeta_z + f0 + beta * ds_grid['YG']
     
     b_x = grid.interp(b, to={'Z': 'right', 'Y': 'left'}, axis=['Y', 'Z'], boundary='extend')
-    b_y = grid.interp(b, to={'Z': 'right', 'X': 'left'}, axis=['X', 'Z'], boundary='extend')
     b_z = grid.interp(b, axis=['X', 'Y'], boundary='extend')
     
     zi_b_x = zi_x * b_x
-    zi_b_y = zi_y * b_y
     zi_b_z = zi_z * b_z
 
     Q_x = grid.diff(zi_b_x, axis='X', boundary='extend') / ds_grid['dxV']
-    Q_y = grid.diff(zi_b_y, axis='Y', boundary='extend') / ds_grid['dyU']
     Q_z = grid.diff(zi_b_z, to='right', axis='Z', boundary='extend') / ds_grid['drL']
     
     Q = Q_x + Q_y + Q_z
