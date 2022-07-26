@@ -1,134 +1,114 @@
-#!/usr/bin/env python3
-""" PVCALC.general
+from xgcm import Grid
 
-This module contains functions which are used by two or more of the
-specialised submodules.
-"""
-import xarray as xr
+boundz = 'fill'
 
-def construct_grid_file_name(processor, tile):
-    """ Gives the relative path to a grid file name
+def create_xgcm_grid(ds):
+    grid = Grid(ds,
+            periodic=[],
+            coords={'X': {'left': 'XG', 'center': 'XC'},
+                    'Y': {'left': 'YG', 'center': 'YC'},
+                    'Z': {'right': 'Zl', 'center': 'Z', 'outer': 'Zp1', 'left': 'Zu'}})
+    return grid
 
-    Arguments:
-        processor --> the mnc folder name (string). e.g. 'mnc_0001'
-        tile --> the tile number (string). e.g. 't000002'
+def create_drL_from_dataset(ds):
+    drL = - ds['drC'].isel(Zp1=slice(0, -1)).rename({'Zp1': 'Zl'})
+    return drL
 
-    Returns:
-        fn --> The relative path to the grid netcdf file of the tile (sting).
-            There is no guarantee that such a file exists however!
+
+def create_drU_from_dataset(ds):
+    drU = - ds['drC'].isel(Zp1=slice(1, None)).rename({'Zp1': 'Zu'})
+    
+
+def calculate_density(da_rho_anom, da_rho_ref):
+    da_rho = da_rho_anom + da_rho_ref
+    return da_rho
+
+
+def calculate_buoyancy(da_rho, rho_0=1000, g=9.81):
+    da_b = - g * da_rho / rho_0
+    return da_b
+
+
+def calculate_grad_buoyancy(da_b, ds_grid, grid):
+    dbdz = grid.diff(da_b, axis='Z', boundary='extend', to='right') / ds_grid['drL']
+    dbdx = grid.diff(da_b, axis='X', boundary='extend') / ds_grid['dxC']
+    dbdy = grid.diff(da_b, axis='Y', boundary='extend') / ds_grid['dyC']
+    return dbdx, dbdy, dbdz
+
+
+def calculate_curl_velocity(da_u, da_v, da_w, ds_grid, grid, no_slip_bottom, no_slip_sides):
+    
+    if no_slip_bottom:
+        bottom_boundary_kwargs = {'boundary': 'fill',
+                                   'fill_value': 0}
+    else:
+        bottom_boundary_kwargs = {'boundary': 'extend'}
+        
+    if no_slip_sides:
+        lateral_boundary_kwargs = {'boundary': 'fill',
+                                   'fill_value': 0}
+    else:
+        lateral_boundary_kwargs = {'boundary': 'extend'}
+        
+    dwdy = grid.diff(da_w, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyC']
+    dvdz = grid.diff(da_v, axis='Z', **bottom_boundary_kwargs, to='right') / ds_grid['drL']
+    zeta_x = dwdy - dvdz
+
+    dudz = grid.diff(da_u, axis='Z', **bottom_boundary_kwargs, to='right') / ds_grid['drL']
+    dwdx = grid.diff(da_w, axis='X', **lateral_boundary_kwargs) / ds_grid['dxC']
+    zeta_y = dudz - dwdx
+
+    dvdx = grid.diff(da_v, axis='X', **lateral_boundary_kwargs) / ds_grid['dxV']
+    dudy = grid.diff(da_u, axis='Y', **lateral_boundary_kwargs) / ds_grid['dyU']
+    zeta_z = dvdx - dudy
+
+    return zeta_x, zeta_y, zeta_z
+
+
+def calculate_C_potential_vorticity(zeta_x, zeta_y, zeta_z, b, ds_grid, grid, beta, f0, fprime=0):
+    """ clauclates the potential vorticity using the C-grid formula
+    
+    Notes
+    -----
+    * See Morel et al. (Ocean Modelling, 2019) for full details of
+        the algorithm employed here.
     """
-    fn = processor + '/grid.' + tile + '.nc'
-    return fn
+    
+    zi_x = zeta_x
+    zi_y = zeta_y + fprime
+    zi_z = zeta_z + f0 + beta * ds_grid['YG']
+    
+    b_x = grid.interp(b, to={'Z': 'right', 'Y': 'left'}, axis=['Y', 'Z'], boundary='extend')
+    b_y = grid.interp(b, to={'Z': 'right', 'X': 'left'}, axis=['X', 'Z'], boundary='extend')
+    b_z = grid.interp(b, axis=['X', 'Y'], boundary='extend')
+    
+    zi_b_x = zi_x * b_x
+    zi_b_y = zi_y * b_y
+    zi_b_z = zi_z * b_z
+
+    Q_x = grid.diff(zi_b_x, axis='X', boundary='extend') / ds_grid['dxV']
+    Q_y = grid.diff(zi_b_y, axis='Y', boundary='extend') / ds_grid['dyU']
+    Q_z = grid.diff(zi_b_z, to='right', axis='Z', boundary='extend') / ds_grid['drL']
+    
+    Q = Q_x + Q_y + Q_z
+    return Q
 
 
-def deconstruct_processor_tile_relation(fn):
-    """ Gives the processor and tile names from a grid file name
+def calculate_potential_vorticity(zeta_x, zeta_y, zeta_z, dbdx, dbdy, dbdz, ds_grid, grid, beta, f0):
+    zeta_x_interp = grid.interp(zeta_x, axis=['Y', 'Z'], boundary=boundz)
+    zeta_y_interp = grid.interp(zeta_y, axis=['X', 'Z'], boundary=boundz)
+    zeta_z_interp = grid.interp(zeta_z.chunk({'Z': -1}), axis=['X', 'Y'], boundary=boundz)
+    
+    f = f0 + beta * ds_grid['YC']
 
-    Arguments:
-        fn --> string of the form './mnc_XXXX/VAR.tYYYY.*nc'
-
-    Returns:
-        processor --> string of the processor folder name, e.g. 'mnc_0001'
-        tile --> string of the tile name, e.g. 't0001'
-    """
-    processor = fn.split('/')[0]
-    tile = fn.split('.')[1]
-    return processor, tile
-
-
-def is_boundary(da_depth):
-    """ Determines is a tile is a boundary tile
-
-    Arguments:
-        da_depth --> xarray.dataarray object. Contains depth values for
-            the tile.
-
-    Returns:
-        North --> boolean, True if northern boundary tile.
-        South --> boolean, True if southern boundary tile.
-        East --> boolean, True if eastern boundary tile.
-        West --> boolean, True if western boundary tile.
-
-    Notes:
-        The function only works if the boundary is a straight line along
-        lines of lattitude or longitude. If the depth is zero at points
-        adjacent to the corners of the domain the edge is deemed to be a
-        boundary.
-    """
-    North, South, East, West = False, False, False, False
-    if not da_depth.isel({'X': 1, 'Y': -1}).data:
-        North = True
-    if not da_depth.isel({'X': 1, 'Y': 0}).data:
-        South = True
-    if not da_depth.isel({'X': -1, 'Y': 1}).data:
-        East = True
-    if not da_depth.isel({'X': 0, 'Y': 1}).data:
-        West = True
-    return North, South, East, West
-
-
-def calc_q(ds_b, da_vvort, ds_hvort):
-    """ Calculates the PV by combining arrays of its constituents
-
-    Arguments:
-        ds_b --> xarray dataset containing buoyancy gradients. Must contain
-            keys 'dbdz', 'dbdx' and 'dbdy'
-        da_vvort --> xarray dataarray containing the vertical component of
-            absolute vorticity.
-        ds_hvort --> xarray dataset containing the meridional and zonal
-            components of absolute vorticity. Must contain keys 'merid' and
-            'zonal'
-
-    Returns:
-        q --> xarray dataset containing variable 'potVort' which gives the
-            Ertel PV.
-
-    Notes:
-        All inputs must be given on the same grid.
-    """
-    vert = da_vvort * ds_b['dbdz']
-    merid = ds_hvort['merid'] * ds_b['dbdy']
-    zonal = ds_hvort['zonal'] * ds_b['dbdx']
-    q = xr.Dataset()
-    q['potVort'] = vert + merid + zonal
-    return q
-
-
-def format_vertical_coordinates(ds, ds_grid):
-    """ adds meaningful labels and depths to a dataset output by MITgcm diags
-
-    Arguments:
-        ds --> dataset that needs the verical coordinates formatting
-        ds_grid --> grid dataset containing Z, Zl and Zu coordinates which
-            correspond to the formatted depths we want to add to ds
-
-    Returns:
-        ds --> dataset with meainingful vertical coordinate labels and names
-            applied
-    """
-    Zmd_name = 'Zmd{:06d}'.format(ds.Nr)
-    Zld_name = 'Zld{:06d}'.format(ds.Nr)
-    Zud_name = 'Zud{:06d}'.format(ds.Nr)
-
-    try:
-        ds.dims[Zmd_name]
-        ds[Zmd_name] = ds_grid['Z'].data
-        ds = ds.rename({Zmd_name: 'Z'})
-    except KeyError:
-        pass
-
-    try:
-        ds.dims[Zld_name]
-        ds[Zld_name] = ds_grid['Zl'].data
-        ds = ds.rename({Zld_name: 'Zl'})
-    except KeyError:
-        pass
-
-    try:
-        ds.dims[Zud_name]
-        ds[Zud_name] = ds_grid['Zu'].data
-        ds = ds.rename({Zud_name: 'Zu'})
-    except KeyError:
-        pass
-
-    return ds
+    dbdx_interp = grid.interp(dbdx, axis=['X'], boundary=boundz)
+    dbdy_interp = grid.interp(dbdy, axis=['Y'], boundary=boundz)
+    dbdz_interp = grid.interp(dbdz, axis=['Z'], boundary=boundz)
+    
+    # I have this here only for debugging
+    # Q is a scalar and does NOT have components
+    Q_x = dbdx_interp * zeta_x_interp
+    Q_y = dbdy_interp * zeta_y_interp
+    Q_z = dbdz_interp * (zeta_z_interp + f)
+    Q = Q_x + Q_y + Q_z
+    return Q
